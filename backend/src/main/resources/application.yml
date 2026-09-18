@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: course-management
+
+server:
+  port: 8080
