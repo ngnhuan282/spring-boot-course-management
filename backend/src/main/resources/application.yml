@@ -1,6 +1,21 @@
 spring:
   application:
     name: course-management
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:15432/course_management}
+    username: ${SPRING_DATASOURCE_USERNAME:course_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:course_password}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
 
 server:
   port: 8080
