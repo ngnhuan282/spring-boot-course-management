@@ -1,4 +1,9 @@
 package com.ccnlthd.course_management.service;
 
-public class CourseService {
+import com.ccnlthd.course_management.dto.request.CourseRequest;
+import com.ccnlthd.course_management.dto.response.CourseResponse;
+
+public interface CourseService {
+
+    CourseResponse createCourse(CourseRequest request);
 }

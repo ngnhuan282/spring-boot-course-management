@@ -14,6 +14,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "courses")
@@ -41,6 +43,9 @@ public class Course {
 
     @Column(nullable = false, length = 50)
     private String status;
+
+    @jakarta.persistence.OneToMany(mappedBy = "course")
+    private List<Enrollment> enrollments = new ArrayList<>();
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -107,6 +112,14 @@ public class Course {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public List<Enrollment> getEnrollments() {
+        return enrollments;
+    }
+
+    public void setEnrollments(List<Enrollment> enrollments) {
+        this.enrollments = enrollments;
     }
 
     public LocalDateTime getCreatedAt() {
