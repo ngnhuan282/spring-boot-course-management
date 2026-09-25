@@ -3,20 +3,35 @@ services:
     image: mysql:8.4
     container_name: course-management-mysql
     restart: unless-stopped
+
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-course_management}
       MYSQL_USER: ${MYSQL_USER:-course_user}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-course_password}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
+
     ports:
-      - "${MYSQL_PORT:-13306}:3306"
+      - "${MYSQL_PORT:-3306}:3306"
+
     volumes:
       - course_management_mysql_data:/var/lib/mysql
+
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u$${MYSQL_USER} -p$${MYSQL_PASSWORD}"]
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-p${MYSQL_ROOT_PASSWORD:-root_password}"
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 20s
 
 volumes:
   course_management_mysql_data:

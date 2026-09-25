@@ -2,7 +2,11 @@ package com.ccnlthd.course_management.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.Setter;
 
+@Setter
+@Getter
 public class CategoryRequest {
 
     @NotBlank(message = "Category name is required")
@@ -12,19 +16,4 @@ public class CategoryRequest {
     @Size(max = 500, message = "Category description must not exceed 500 characters")
     private String description;
 
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
 }
