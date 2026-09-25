@@ -9,22 +9,16 @@ import com.ccnlthd.course_management.exception.ErrorCode;
 import com.ccnlthd.course_management.repository.CategoryRepository;
 import com.ccnlthd.course_management.repository.CourseRepository;
 import com.ccnlthd.course_management.service.CourseService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class CourseServiceImpl implements CourseService {
 
     private final CourseRepository courseRepository;
     private final CategoryRepository categoryRepository;
-
-    public CourseServiceImpl(
-            CourseRepository courseRepository,
-            CategoryRepository categoryRepository
-    ) {
-        this.courseRepository = courseRepository;
-        this.categoryRepository = categoryRepository;
-    }
 
     @Override
     @Transactional

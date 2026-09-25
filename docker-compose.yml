@@ -1,21 +1,37 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: course-management-postgres
+  mysql:
+    image: mysql:8.4
+    container_name: course-management-mysql
     restart: unless-stopped
+
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-course_management}
-      POSTGRES_USER: ${POSTGRES_USER:-course_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-course_password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-course_management}
+      MYSQL_USER: ${MYSQL_USER:-course_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-course_password}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
+
     ports:
-      - "${POSTGRES_PORT:-15432}:5432"
+      - "${MYSQL_PORT:-3306}:3306"
+
     volumes:
-      - course_management_postgres_data:/var/lib/postgresql/data
+      - course_management_mysql_data:/var/lib/mysql
+
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-p${MYSQL_ROOT_PASSWORD:-root_password}"
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 20s
 
 volumes:
-  course_management_postgres_data:
+  course_management_mysql_data:

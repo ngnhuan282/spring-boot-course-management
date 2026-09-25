@@ -4,6 +4,7 @@ import com.ccnlthd.course_management.dto.request.EnrollmentRequest;
 import com.ccnlthd.course_management.dto.response.EnrollmentResponse;
 import com.ccnlthd.course_management.service.EnrollmentService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,13 +14,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/enrollments")
+@RequiredArgsConstructor
 public class EnrollmentController {
 
     private final EnrollmentService enrollmentService;
-
-    public EnrollmentController(EnrollmentService enrollmentService) {
-        this.enrollmentService = enrollmentService;
-    }
 
     @PostMapping
     public ResponseEntity<EnrollmentResponse> createEnrollment(

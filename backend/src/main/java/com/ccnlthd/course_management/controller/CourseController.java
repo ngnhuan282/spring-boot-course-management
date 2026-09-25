@@ -4,6 +4,7 @@ import com.ccnlthd.course_management.dto.request.CourseRequest;
 import com.ccnlthd.course_management.dto.response.CourseResponse;
 import com.ccnlthd.course_management.service.CourseService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,13 +16,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/courses")
+@RequiredArgsConstructor
 public class CourseController {
 
     private final CourseService courseService;
-
-    public CourseController(CourseService courseService) {
-        this.courseService = courseService;
-    }
 
     @PostMapping
     public ResponseEntity<CourseResponse> createCourse(
