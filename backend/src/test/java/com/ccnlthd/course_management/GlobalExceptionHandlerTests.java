@@ -2,7 +2,8 @@ package com.ccnlthd.course_management;
 
 import com.ccnlthd.course_management.controller.CourseController;
 import com.ccnlthd.course_management.dto.request.CourseRequest;
-import com.ccnlthd.course_management.dto.response.CourseResponse;
+import com.ccnlthd.course_management.exception.AppException;
+import com.ccnlthd.course_management.exception.ErrorCode;
 import com.ccnlthd.course_management.exception.GlobalExceptionHandler;
 import com.ccnlthd.course_management.service.CourseService;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,18 +13,16 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
-import java.math.BigDecimal;
-
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-class CourseControllerValidationTests {
+class GlobalExceptionHandlerTests {
 
     private CourseService courseService;
     private MockMvc mockMvc;
@@ -43,12 +42,23 @@ class CourseControllerValidationTests {
     }
 
     @Test
-    void shouldReturn400AndNotCallBusinessLogicWhenRequestIsInvalid() throws Exception {
+    void shouldReturnStandardResponseWhenBusinessExceptionOccurs() throws Exception {
+        when(courseService.getCourseById(99L))
+                .thenThrow(new AppException(ErrorCode.COURSE_NOT_FOUND));
+
+        mockMvc.perform(get("/api/courses/{id}", 99L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("COURSE_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Course not found"))
+                .andExpect(jsonPath("$.timestamp").exists());
+    }
+
+    @Test
+    void shouldReturnStandardResponseAndSkipServiceWhenValidationFails() throws Exception {
         String invalidJson = """
                 {
                   "categoryId": null,
                   "title": "",
-                  "description": "Invalid course",
                   "price": -1,
                   "level": "",
                   "status": ""
@@ -58,26 +68,18 @@ class CourseControllerValidationTests {
         mockMvc.perform(post("/api/courses")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalidJson))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.message").exists())
+                .andExpect(jsonPath("$.timestamp").exists());
 
         verifyNoInteractions(courseService);
     }
 
     @Test
-    void shouldCallBusinessLogicWhenRequestIsValid() throws Exception {
-        CourseResponse response = new CourseResponse(
-                10L,
-                1L,
-                "Backend",
-                "Spring Boot Fundamentals",
-                "Build REST APIs with Spring Boot.",
-                new BigDecimal("499000.00"),
-                "BEGINNER",
-                "PUBLISHED"
-        );
-
+    void shouldReturnStandardResponseWhenUnexpectedExceptionOccurs() throws Exception {
         when(courseService.createCourse(any(CourseRequest.class)))
-                .thenReturn(response);
+                .thenThrow(new RuntimeException("Database is unavailable"));
 
         String validJson = """
                 {
@@ -93,9 +95,9 @@ class CourseControllerValidationTests {
         mockMvc.perform(post("/api/courses")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validJson))
-                .andExpect(status().isCreated());
-
-        verify(courseService, times(1))
-                .createCourse(any(CourseRequest.class));
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("UNCATEGORIZED_EXCEPTION"))
+                .andExpect(jsonPath("$.message").value("An unexpected error occurred"))
+                .andExpect(jsonPath("$.timestamp").exists());
     }
 }
