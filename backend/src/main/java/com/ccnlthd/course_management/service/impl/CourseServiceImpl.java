@@ -4,6 +4,8 @@ import com.ccnlthd.course_management.dto.request.CourseRequest;
 import com.ccnlthd.course_management.dto.response.CourseResponse;
 import com.ccnlthd.course_management.entity.Category;
 import com.ccnlthd.course_management.entity.Course;
+import com.ccnlthd.course_management.exception.AppException;
+import com.ccnlthd.course_management.exception.ErrorCode;
 import com.ccnlthd.course_management.repository.CategoryRepository;
 import com.ccnlthd.course_management.repository.CourseRepository;
 import com.ccnlthd.course_management.service.CourseService;
@@ -28,7 +30,7 @@ public class CourseServiceImpl implements CourseService {
     @Transactional
     public CourseResponse createCourse(CourseRequest request) {
         Category category = categoryRepository.findById(request.getCategoryId())
-                .orElseThrow(() -> new IllegalArgumentException("Category not found"));
+                .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_NOT_FOUND));
 
         Course course = new Course();
         course.setCategory(category);
@@ -41,5 +43,14 @@ public class CourseServiceImpl implements CourseService {
         Course savedCourse = courseRepository.save(course);
 
         return CourseResponse.from(savedCourse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CourseResponse getCourseById(Long id) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.COURSE_NOT_FOUND));
+
+        return CourseResponse.from(course);
     }
 }
