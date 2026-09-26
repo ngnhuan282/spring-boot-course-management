@@ -10,18 +10,11 @@ import java.util.List;
 
 public interface CourseRepository extends JpaRepository<Course, Long> {
 
-    List<Course> findByCategory_Id(Long categoryId);
+    List<Course> findAllByOrderByIdAsc();
 
     List<Course> findByStatusIgnoreCase(String status);
 
     List<Course> findByPriceBetween(BigDecimal minPrice, BigDecimal maxPrice);
-
-    @Query("""
-            select c
-            from Course c
-            where lower(c.category.name) = lower(:categoryName)
-            """)
-    List<Course> findByCategoryName(@Param("categoryName") String categoryName);
 
     @Query("""
             select c

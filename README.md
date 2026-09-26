@@ -233,23 +233,7 @@ Swagger được sử dụng để:
 
 ## 9. Phạm vi case study
 
-Bài toán minh họa dự kiến sử dụng các thực thể chính:
-
-- `Category`
-- `Course`
-- `Student`
-- `Enrollment`
-
-Quan hệ cơ bản:
-
-```text
-Category 1 ----- N Course
-
-Student  1 ----- N Enrollment
-Course   1 ----- N Enrollment
-```
-
-Phạm vi nghiệp vụ sẽ được giữ ở mức vừa đủ để minh họa các nội dung Spring Boot đã đăng ký.
+Bài toán minh họa chỉ sử dụng thực thể `Course`, với API tạo, xem, cập nhật và xóa khóa học. Phạm vi nghiệp vụ được giữ ở mức vừa đủ để minh họa các nội dung Spring Boot đã đăng ký.
 
 ---
 
@@ -384,3 +368,36 @@ Phân công chi tiết được quản lý trong file kế hoạch tiến độ 
 > **Đang phát triển**
 
 Phiên bản hiện tại tập trung vào việc hoàn thiện nền tảng Spring Boot và các nội dung học tập theo yêu cầu môn học trước khi mở rộng nghiệp vụ.
+
+---
+
+## Chạy nhánh `refactor/course-standalone`
+
+Course dùng REST Controller, Service, Spring Data JPA, Bean Validation và Global Exception Handler. Request/response của Course chỉ gồm `title`, `description`, `price`, `level`, `status` (response có thêm `id`). Backend chỉ còn module Course; các file Category, Student và Enrollment đã được gỡ khỏi mã nguồn.
+
+Chuẩn bị MySQL 8.4 bằng `docker compose up -d mysql`. Nếu dùng database cũ, chạy migration **trước khi khởi động ứng dụng**:
+
+```powershell
+Get-Content backend/src/main/resources/migration/course-standalone-mysql.sql -Raw |
+  docker exec -i course-management-mysql mysql -u course_user -pcourse_password -D course_management
+```
+
+Migration bỏ khóa ngoại Category, cho phép `courses.category_id` nhận `NULL`, và bỏ khóa ngoại `enrollments.course_id`; giữ nguyên các cột, giá trị và mọi dòng dữ liệu cũ. Với database mới, Hibernate chỉ tạo bảng `courses` cho nghiệp vụ, nên không cần chạy migration. `ddl-auto: update` không tự bỏ bảng và ràng buộc cũ. Các bảng Category, Student, Enrollment có sẵn trong database cũ vẫn được giữ để tránh mất dữ liệu, nhưng ứng dụng không còn ánh xạ hoặc sử dụng chúng. Nếu xóa Course từng có Enrollment cũ, dòng Enrollment cũ có thể trỏ tới ID Course không còn tồn tại.
+
+Chạy build/test và ứng dụng từ thư mục `backend`:
+
+```powershell
+.\mvnw.cmd clean verify
+.\mvnw.cmd spring-boot:run
+```
+
+Ví dụ request tạo Course:
+
+```http
+POST /api/courses
+Content-Type: application/json
+
+{"title":"Spring Boot thực hành","description":"REST và JPA","price":499000,"level":"BEGINNER","status":"DRAFT"}
+```
+
+API còn có `GET /api/courses`, `GET /api/courses/{id}`, `PUT /api/courses/{id}` (cùng JSON với POST), `DELETE /api/courses/{id}`. DELETE thành công trả `204`; ID không tồn tại trả `404` với code `COURSE_NOT_FOUND`. `title` rỗng hoặc `price` âm trả `400` với code `VALIDATION_FAILED`.

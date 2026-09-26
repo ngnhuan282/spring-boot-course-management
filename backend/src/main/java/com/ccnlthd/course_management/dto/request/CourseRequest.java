@@ -13,9 +13,6 @@ import java.math.BigDecimal;
 @Getter
 public class CourseRequest {
 
-    @NotNull(message = "Category id is required")
-    private Long categoryId;
-
     @NotBlank(message = "Course title is required")
     @Size(max = 150, message = "Course title must not exceed 150 characters")
     private String title;

@@ -15,8 +15,6 @@ import java.math.BigDecimal;
 public class CourseResponse {
 
     private Long id;
-    private Long categoryId;
-    private String categoryName;
     private String title;
     private String description;
     private BigDecimal price;
@@ -26,8 +24,6 @@ public class CourseResponse {
     public static CourseResponse from(Course course) {
         return new CourseResponse(
                 course.getId(),
-                course.getCategory().getId(),
-                course.getCategory().getName(),
                 course.getTitle(),
                 course.getDescription(),
                 course.getPrice(),

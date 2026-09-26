@@ -57,7 +57,6 @@ class GlobalExceptionHandlerTests {
     void shouldReturnStandardResponseAndSkipServiceWhenValidationFails() throws Exception {
         String invalidJson = """
                 {
-                  "categoryId": null,
                   "title": "",
                   "price": -1,
                   "level": "",
@@ -83,7 +82,6 @@ class GlobalExceptionHandlerTests {
 
         String validJson = """
                 {
-                  "categoryId": 1,
                   "title": "Spring Boot Fundamentals",
                   "description": "Build REST APIs with Spring Boot.",
                   "price": 499000,

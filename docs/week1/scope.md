@@ -209,20 +209,8 @@ Không commit trực tiếp vào branch `main`.
 
 # 8. PHẠM VI NGHIỆP VỤ
 
-Case study quản lý khóa học trực tuyến dự kiến gồm các Entity chính:
-
-- Course
-- Category
-- Student
-- Enrollment
-
-Quan hệ cơ bản:
-
-Category 1 --- N Course
-
-Student 1 --- N Enrollment
-
-Course 1 --- N Enrollment
+Case study quản lý khóa học trực tuyến sử dụng một Entity `Course` độc lập.
+API minh họa thao tác tạo, xem chi tiết, xem danh sách, cập nhật và xóa Course.
 
 Các chức năng nghiệp vụ chỉ được xây dựng ở mức đủ để minh họa
 Spring Boot và các kỹ thuật được nghiên cứu.
