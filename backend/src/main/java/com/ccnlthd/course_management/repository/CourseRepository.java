@@ -10,6 +10,8 @@ import java.util.List;
 
 public interface CourseRepository extends JpaRepository<Course, Long> {
 
+    boolean existsByCategory_Id(Long categoryId);
+
     List<Course> findByCategory_Id(Long categoryId);
 
     List<Course> findByStatusIgnoreCase(String status);
