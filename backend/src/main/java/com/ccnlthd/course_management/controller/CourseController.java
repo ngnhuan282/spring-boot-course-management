@@ -25,16 +25,6 @@ public class CourseController {
 
     private final CourseService courseService;
 
-    @PostMapping
-    public ResponseEntity<CourseResponse> createCourse(
-            @Valid @RequestBody CourseRequest request
-    ) {
-        CourseResponse response = courseService.createCourse(request);
-
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(response);
-    }
 
     @GetMapping("/{id}")
     public ResponseEntity<CourseResponse> getCourseById(@PathVariable Long id) {
@@ -44,6 +34,17 @@ public class CourseController {
     @GetMapping
     public ResponseEntity<List<CourseResponse>> getAllCourses() {
         return ResponseEntity.ok(courseService.getAllCourses());
+    }
+
+    @PostMapping
+    public ResponseEntity<CourseResponse> createCourse(
+            @Valid @RequestBody CourseRequest request
+    ) {
+        CourseResponse response = courseService.createCourse(request);
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(response);
     }
 
     @PutMapping("/{id}")
