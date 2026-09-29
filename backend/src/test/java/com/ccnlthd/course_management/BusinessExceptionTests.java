@@ -32,7 +32,8 @@ class BusinessExceptionTests {
     void shouldThrowCategoryNotFoundWhenCreatingCourseWithMissingCategory() {
         CourseRepository courseRepository = mock(CourseRepository.class);
         CategoryRepository categoryRepository = mock(CategoryRepository.class);
-        CourseServiceImpl courseService = new CourseServiceImpl(courseRepository, categoryRepository);
+        CourseServiceImpl courseService = new CourseServiceImpl(
+                courseRepository, categoryRepository, mock(EnrollmentRepository.class));
 
         CourseRequest request = validCourseRequest();
         when(categoryRepository.findById(404L)).thenReturn(Optional.empty());
@@ -51,7 +52,8 @@ class BusinessExceptionTests {
     void shouldThrowCourseNotFoundWhenCourseDoesNotExist() {
         CourseRepository courseRepository = mock(CourseRepository.class);
         CategoryRepository categoryRepository = mock(CategoryRepository.class);
-        CourseServiceImpl courseService = new CourseServiceImpl(courseRepository, categoryRepository);
+        CourseServiceImpl courseService = new CourseServiceImpl(
+                courseRepository, categoryRepository, mock(EnrollmentRepository.class));
 
         when(courseRepository.findById(99L)).thenReturn(Optional.empty());
 

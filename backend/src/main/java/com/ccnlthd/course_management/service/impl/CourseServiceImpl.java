@@ -8,10 +8,13 @@ import com.ccnlthd.course_management.exception.AppException;
 import com.ccnlthd.course_management.exception.ErrorCode;
 import com.ccnlthd.course_management.repository.CategoryRepository;
 import com.ccnlthd.course_management.repository.CourseRepository;
+import com.ccnlthd.course_management.repository.EnrollmentRepository;
 import com.ccnlthd.course_management.service.CourseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +22,7 @@ public class CourseServiceImpl implements CourseService {
 
     private final CourseRepository courseRepository;
     private final CategoryRepository categoryRepository;
+    private final EnrollmentRepository enrollmentRepository;
 
     @Override
     @Transactional
@@ -46,5 +50,42 @@ public class CourseServiceImpl implements CourseService {
                 .orElseThrow(() -> new AppException(ErrorCode.COURSE_NOT_FOUND));
 
         return CourseResponse.from(course);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CourseResponse> getAllCourses() {
+        return courseRepository.findAll().stream()
+                .map(CourseResponse::from)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public CourseResponse updateCourse(Long id, CourseRequest request) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.COURSE_NOT_FOUND));
+        Category category = categoryRepository.findById(request.getCategoryId())
+                .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_NOT_FOUND));
+
+        course.setCategory(category);
+        course.setTitle(request.getTitle());
+        course.setDescription(request.getDescription());
+        course.setPrice(request.getPrice());
+        course.setLevel(request.getLevel());
+        course.setStatus(request.getStatus());
+
+        return CourseResponse.from(courseRepository.save(course));
+    }
+
+    @Override
+    @Transactional
+    public void deleteCourse(Long id) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.COURSE_NOT_FOUND));
+        if (enrollmentRepository.existsByCourse_Id(id)) {
+            throw new AppException(ErrorCode.COURSE_HAS_ENROLLMENTS);
+        }
+        courseRepository.delete(course);
     }
 }
