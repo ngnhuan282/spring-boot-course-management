@@ -15,6 +15,8 @@ public enum ErrorCode {
     COURSE_NOT_FOUND("COURSE_NOT_FOUND", "Course not found", HttpStatus.NOT_FOUND),
     COURSE_HAS_ENROLLMENTS("COURSE_HAS_ENROLLMENTS", "Course has enrollments", HttpStatus.CONFLICT),
     STUDENT_NOT_FOUND("STUDENT_NOT_FOUND", "Student not found", HttpStatus.NOT_FOUND),
+    STUDENT_EMAIL_ALREADY_EXISTS("STUDENT_EMAIL_ALREADY_EXISTS", "Student email already exists", HttpStatus.CONFLICT),
+    STUDENT_HAS_ENROLLMENTS("STUDENT_HAS_ENROLLMENTS", "Student has enrollments", HttpStatus.CONFLICT),
     ENROLLMENT_ALREADY_EXISTS(
             "ENROLLMENT_ALREADY_EXISTS",
             "Student already enrolled in this course",
