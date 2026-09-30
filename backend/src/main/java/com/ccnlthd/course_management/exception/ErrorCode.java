@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode {
 
     VALIDATION_FAILED("VALIDATION_FAILED", "Request data is invalid", HttpStatus.BAD_REQUEST),
+    RESOURCE_NOT_FOUND("RESOURCE_NOT_FOUND", "Resource not found", HttpStatus.NOT_FOUND),
     CATEGORY_NOT_FOUND("CATEGORY_NOT_FOUND", "Category not found", HttpStatus.NOT_FOUND),
     CATEGORY_ALREADY_EXISTS("CATEGORY_ALREADY_EXISTS", "Category name already exists", HttpStatus.CONFLICT),
     CATEGORY_HAS_COURSES("CATEGORY_HAS_COURSES", "Category has courses", HttpStatus.CONFLICT),
@@ -23,6 +24,7 @@ public enum ErrorCode {
             "Student already enrolled in this course",
             HttpStatus.CONFLICT
     ),
+    DATA_CONFLICT("DATA_CONFLICT", "Data conflicts with an existing record", HttpStatus.CONFLICT),
     UNCATEGORIZED_EXCEPTION(
             "UNCATEGORIZED_EXCEPTION",
             "An unexpected error occurred",
