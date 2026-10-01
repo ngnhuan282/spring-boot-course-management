@@ -9,6 +9,7 @@ import com.ccnlthd.course_management.repository.CourseRepository;
 import com.ccnlthd.course_management.repository.EnrollmentRepository;
 import com.ccnlthd.course_management.repository.StudentRepository;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -16,6 +17,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
@@ -55,5 +57,21 @@ class RepositoryIntegrationTests {
         assertFalse(jpaCourses.isEmpty());
         assertFalse(enrollments.isEmpty());
         assertTrue(enrollmentRepository.findByStudent_IdAndCourse_Id(student.getId(), 1L).isPresent());
+    }
+
+    @Test
+    void shouldRejectDuplicateEnrollmentPairAtRepositoryLevel() {
+        Student student = studentRepository.findByEmailIgnoreCase("an.nguyen@example.com")
+                .orElseThrow();
+        Course course = courseRepository.findById(1L)
+                .orElseThrow();
+
+        Enrollment duplicate = new Enrollment();
+        duplicate.setStudent(student);
+        duplicate.setCourse(course);
+        duplicate.setStatus("ACTIVE");
+
+        assertThrows(DataIntegrityViolationException.class,
+                () -> enrollmentRepository.saveAndFlush(duplicate));
     }
 }
