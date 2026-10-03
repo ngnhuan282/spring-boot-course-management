@@ -68,6 +68,26 @@ class CourseCrudTests {
     }
 
     @Test
+    void createsCourseWhenCategoryExists() {
+        Category category = category(2L, "Database");
+        when(categoryRepository.findById(2L)).thenReturn(Optional.of(category));
+        when(courseRepository.save(any(Course.class))).thenAnswer(invocation -> {
+            Course savedCourse = invocation.getArgument(0);
+            savedCourse.setId(11L);
+            return savedCourse;
+        });
+
+        CourseResponse response = service.createCourse(request());
+
+        assertEquals(11L, response.getId());
+        assertEquals(2L, response.getCategoryId());
+        assertEquals("Database", response.getCategoryName());
+        assertEquals("Updated", response.getTitle());
+        assertEquals(new BigDecimal("100.00"), response.getPrice());
+        verify(courseRepository).save(any(Course.class));
+    }
+
+    @Test
     void updatesExistingCourseAndCategory() {
         Course course = course();
         Category newCategory = category(2L, "Database");

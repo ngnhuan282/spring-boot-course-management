@@ -36,6 +36,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -187,6 +188,20 @@ class EnrollmentCrudTests {
         mvc.perform(delete("/api/enrollments/{id}", 1L))
                 .andExpect(status().isNoContent());
         verify(apiService).deleteEnrollment(1L);
+    }
+
+    @Test
+    void duplicateCreateReturnsConflictResponse() throws Exception {
+        EnrollmentService apiService = mock(EnrollmentService.class);
+        MockMvc mvc = mvc(apiService);
+        when(apiService.createEnrollment(any(EnrollmentRequest.class)))
+                .thenThrow(new AppException(ErrorCode.ENROLLMENT_ALREADY_EXISTS));
+
+        mvc.perform(post("/api/enrollments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":2,\"courseId\":3,\"status\":\"ACTIVE\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ENROLLMENT_ALREADY_EXISTS"));
     }
 
     @Test
