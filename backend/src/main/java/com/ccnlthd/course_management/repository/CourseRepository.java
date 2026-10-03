@@ -10,17 +10,4 @@ import java.util.List;
 
 public interface CourseRepository extends JpaRepository<Course, Long> {
 
-    List<Course> findAllByOrderByIdAsc();
-
-    List<Course> findByStatusIgnoreCase(String status);
-
-    List<Course> findByPriceBetween(BigDecimal minPrice, BigDecimal maxPrice);
-
-    @Query("""
-            select c
-            from Course c
-            where lower(c.title) like lower(concat('%', :keyword, '%'))
-               or lower(c.description) like lower(concat('%', :keyword, '%'))
-            """)
-    List<Course> searchByKeyword(@Param("keyword") String keyword);
 }
