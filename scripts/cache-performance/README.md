@@ -18,6 +18,7 @@ docker compose up -d mysql
 For cache OFF, start the backend from `backend` with cache explicitly disabled:
 
 ```powershell
+Remove-Item Env:DEBUG -ErrorAction SilentlyContinue
 $env:SPRING_CACHE_TYPE="none"
 $env:SPRING_JPA_SHOW_SQL="false"
 .\mvnw.cmd spring-boot:run
@@ -26,6 +27,7 @@ $env:SPRING_JPA_SHOW_SQL="false"
 For cache MISS/HIT, remove the OFF override and keep SQL console logging disabled:
 
 ```powershell
+Remove-Item Env:DEBUG -ErrorAction SilentlyContinue
 Remove-Item Env:SPRING_CACHE_TYPE -ErrorAction SilentlyContinue
 $env:SPRING_JPA_SHOW_SQL="false"
 .\mvnw.cmd spring-boot:run
@@ -70,6 +72,8 @@ After the backend is restarted with cache enabled:
 
 The tool never calls `FLUSHALL` or `FLUSHDB`.
 
+Native commands are executed through a shared Windows PowerShell-compatible helper. Valid stderr output, such as `java -version` or a MySQL warning, is captured without failing a successful command. A non-zero native exit code still fails the benchmark and is written to `failure.json`.
+
 ## Metrics
 
 Latency starts immediately before the HTTP send and stops only after the complete response body is read. Statistics are calculated from full-precision values:
@@ -83,7 +87,7 @@ Latency starts immediately before the HTTP send and stops only after the complet
 
 `Com_select` is a global MySQL counter. Unrelated database traffic during the measured workload can change the delta, so measurements should run without other traffic.
 
-All latency runs disable Hibernate SQL console logging through `SPRING_JPA_SHOW_SQL=false` to reduce asymmetric console I/O between OFF/MISS and HIT. If SQL console output is needed for a report screenshot, run a separate verification that is not used as latency evidence.
+Before every final latency run, remove `DEBUG` from the environment and set `SPRING_JPA_SHOW_SQL=false`. Confirm that Hibernate SQL DEBUG statements are absent; if they remain, stop and identify the logging source before measuring. If SQL console output is needed for a report screenshot, run a separate verification that is not used as latency evidence.
 
 Use JDK 21 for final product measurements when it is available. The benchmark records the actual Java runtime, so a run made with another JDK must be reported with that real version.
 

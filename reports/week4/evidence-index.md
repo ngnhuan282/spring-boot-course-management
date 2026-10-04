@@ -4,8 +4,9 @@
 
 - Branch: `feat/week4-cache-coverage-regression`.
 - Integration measurement commit: `2aa11d2aff81dab06dc0804016caf4f9e4425b28`.
+- Phase B2 evidence commit: `dc0e07f0460e90a493bd8acfe2cec89307c96a61`.
 - Measurement source working tree: `clean` in OFF, MISS and HIT summaries.
-- Current working tree: dirty because Phase B2 benchmark results, raw regression log and reports are not committed.
+- Current working tree: dirty because the post-Phase-B2 tooling cleanup is not committed.
 - Cache status: integrated; integration benchmark complete.
 - Final product commit: `PENDING_FINAL_PRODUCT_COMMIT`.
 - Commit/push/merge performed by Codex: no.
@@ -50,6 +51,13 @@ Historical/failed benchmark evidence is retained and excluded from the compariso
 - `scripts/cache-performance/results/2026-10-04_165856_off/failure.json`: process-local adapter scope error.
 
 The benchmark portability issue is recorded in `reports/week4/bug-log.md`; no failed attempt is presented as performance evidence.
+
+Post-Phase-B2 tooling verification, excluded from performance conclusions:
+
+- Direct OFF/MISS/HIT smoke: `scripts/cache-performance/results/tooling-smoke-2026-10-04_191900/` with Course ID `1`, warm-up `1`, runs `3` and concurrency `1`.
+- Initial direct-smoke SQL quoting failure: `scripts/cache-performance/results/tooling-smoke-2026-10-04_191900/2026-10-04_191944_off/failure.json`.
+- Non-zero native exit enforcement: `scripts/cache-performance/results/tooling-nonzero-2026-10-04_191833/2026-10-04_191833_off/failure.json`; child process exited `1`.
+- Chapter 13.2 candidate status: `RESOLVED_POST_PHASE_B2`.
 
 ## Task 35 - Technical coverage
 
@@ -110,7 +118,7 @@ The following screenshots still need to be captured by a team member; none is cl
 - [ ] Cache invalidation after Course update/delete or Category rename
 - [ ] GitHub Actions successful run, if available
 - [ ] GitHub PR reviewer and merge evidence
-- [ ] Qualifying product bug before/after evidence only if one actually occurs
+- [ ] Chapter 13.2 benchmark tooling bug before/after, direct smoke pass and non-zero failure evidence
 
 ## Required after the real develop merge
 
@@ -124,3 +132,12 @@ git status
 ```
 
 Then run a fresh full regression and repeat OFF, MISS and HIT with the same endpoint, Course ID, workload and payload-hash validation. Refresh Task 31, Task 35 and Task 36 with the final develop commit and use only those new numbers for the final Chapter 12 product claim.
+
+Before starting either backend mode for that measurement:
+
+```powershell
+Remove-Item Env:DEBUG -ErrorAction SilentlyContinue
+$env:SPRING_JPA_SHOW_SQL="false"
+```
+
+Verify that Hibernate SQL DEBUG output is absent. If it still appears, stop before measurement and correct the logging environment.

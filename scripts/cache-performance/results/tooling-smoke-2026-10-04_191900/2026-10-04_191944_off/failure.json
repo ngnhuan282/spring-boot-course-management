@@ -1,0 +1,10 @@
+﻿{
+    "Status":  "FAILED",
+    "Timestamp":  "2026-10-04T19:19:46.7617730+07:00",
+    "Mode":  "OFF",
+    "Endpoint":  "http://localhost:8080/api/courses/1",
+    "CourseId":  1,
+    "CompletedMeasuredRequests":  0,
+    "Error":  "docker compose failed with exit code 1: mysql: [Warning] Using a password on the command line interface can be insecure.\r\nERROR 1064 (42000) at line 1: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near \u0027\u0027 at line 1",
+    "Note":  "No successful summary was generated."
+}

@@ -10,6 +10,7 @@ Measure the same Course detail endpoint, Course ID, database data, workload, mac
 |---|---|
 | Branch | `feat/week4-cache-coverage-regression` |
 | Integration measurement commit | `2aa11d2aff81dab06dc0804016caf4f9e4425b28` |
+| Phase B2 evidence commit | `dc0e07f0460e90a493bd8acfe2cec89307c96a61` |
 | Source working tree during all runs | Clean |
 | Final product commit | `PENDING_FINAL_PRODUCT_COMMIT` |
 | Java runtime | `22.0.2` |
@@ -101,10 +102,10 @@ The script never calls `FLUSHALL` or `FLUSHDB`.
 
 ## 8. Database query evidence
 
-The script reads:
+The post-Phase-B2 script reads the same global counter with a shell-safe equivalent query:
 
 ```sql
-SHOW GLOBAL STATUS LIKE 'Com_select';
+SHOW GLOBAL STATUS WHERE Variable_name = 'Com_select';
 ```
 
 `DbSelectDelta = SelectAfter - SelectBefore`. MySQL credentials are consumed inside the running Compose container and are not copied into logs or summaries.
@@ -157,6 +158,8 @@ The historical failed attempts remain retained for traceability and are not incl
 
 The successful measurements used a process-local PowerShell adapter to normalize native stderr handling and execute the intended read-only `Com_select` query. The repository benchmark script and runtime configuration were not edited between OFF, MISS and HIT.
 
+After the Phase B2 evidence was committed at `dc0e07f0460e90a493bd8acfe2cec89307c96a61`, the repository script received the native-command portability correction recorded in `reports/week4/bug-log.md`. Direct OFF/MISS/HIT smoke evidence is under `scripts/cache-performance/results/tooling-smoke-2026-10-04_191900/`; non-zero exit enforcement is under `scripts/cache-performance/results/tooling-nonzero-2026-10-04_191833/`. These small smoke runs validate the tool only and do not replace, alter or supplement the official performance numbers above.
+
 ## 11. Integration versus final product evidence
 
 - Benchmark CLI: `scripts/cache-performance/benchmark.ps1`.
@@ -169,4 +172,11 @@ The successful measurements used a process-local PowerShell adapter to normalize
 
 Status: `INTEGRATION_MEASUREMENT_COMPLETE` at commit `2aa11d2aff81dab06dc0804016caf4f9e4425b28`.
 
-After the real merge into `develop`, rerun regression and OFF/MISS/HIT from the final develop commit. Only those later numbers may be presented as final Chapter 12 product performance evidence.
+After the real merge into `develop`, remove the inherited debug environment and explicitly disable Hibernate `show-sql` before starting either backend mode:
+
+```powershell
+Remove-Item Env:DEBUG -ErrorAction SilentlyContinue
+$env:SPRING_JPA_SHOW_SQL="false"
+```
+
+Inspect startup/request logs before measurement. If Hibernate SQL DEBUG output still appears, stop and correct the logging environment before running the official workload. Then rerun regression and OFF/MISS/HIT from one clean final develop commit. Only those later numbers may be presented as final Chapter 12 product performance evidence.

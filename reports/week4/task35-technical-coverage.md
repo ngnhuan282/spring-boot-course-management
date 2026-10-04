@@ -4,8 +4,9 @@
 
 - Branch: `feat/week4-cache-coverage-regression`.
 - Integration measurement commit: `2aa11d2aff81dab06dc0804016caf4f9e4425b28`.
+- Phase B2 evidence commit: `dc0e07f0460e90a493bd8acfe2cec89307c96a61`.
 - Measurement source working tree: Clean for OFF, MISS and HIT.
-- Current working tree: Dirty only because Phase B2 evidence has not been committed.
+- Current working tree: Dirty because the post-Phase-B2 tooling cleanup is not committed.
 - Final product commit: `PENDING_FINAL_PRODUCT_COMMIT`.
 - Final regression evidence time: `2026-10-04T17:07:54+07:00`.
 - Local Java: `22.0.2`; Maven target and CI Java: `21`.
@@ -34,12 +35,39 @@ Task31 runtime measurement is evidence for the Cache/Redis row; it is not counte
 
 ### T1 and optional techniques
 
-- IoC/DI and layering: `CourseController`, `CourseServiceImpl`, `EnrollmentController`, `EnrollmentServiceImpl`, `CategoryController`, `CategoryServiceImpl`, `StudentController` and `StudentServiceImpl`.
-- JPA: `Course`, `Enrollment`, `CourseRepository` and `EnrollmentRepository`, including Course-Category and Enrollment-Student/Course relations.
-- Validation: `CourseRequest`, `EnrollmentRequest`, `CourseControllerValidationTests`, `RequestDtoValidationTests` and invalid-request cases in CRUD tests.
-- Exception handling: `GlobalExceptionHandler`, `BusinessExceptionTests` and `GlobalExceptionHandlerTests`.
+IoC/DI and Controller-Service layering:
 
-All paths above are under `backend/src/main/java/com/ccnlthd/course_management` or the matching test package.
+- `backend/src/main/java/com/ccnlthd/course_management/controller/CourseController.java`
+- `backend/src/main/java/com/ccnlthd/course_management/service/impl/CourseServiceImpl.java`
+- `backend/src/main/java/com/ccnlthd/course_management/controller/CategoryController.java`
+- `backend/src/main/java/com/ccnlthd/course_management/service/impl/CategoryServiceImpl.java`
+- `backend/src/main/java/com/ccnlthd/course_management/controller/StudentController.java`
+- `backend/src/main/java/com/ccnlthd/course_management/service/impl/StudentServiceImpl.java`
+- `backend/src/main/java/com/ccnlthd/course_management/controller/EnrollmentController.java`
+- `backend/src/main/java/com/ccnlthd/course_management/service/impl/EnrollmentServiceImpl.java`
+
+Spring Data JPA representatives, including Course-Category and Enrollment-Student/Course relations:
+
+- `backend/src/main/java/com/ccnlthd/course_management/entity/Course.java`
+- `backend/src/main/java/com/ccnlthd/course_management/entity/Category.java`
+- `backend/src/main/java/com/ccnlthd/course_management/entity/Student.java`
+- `backend/src/main/java/com/ccnlthd/course_management/entity/Enrollment.java`
+- `backend/src/main/java/com/ccnlthd/course_management/repository/CourseRepository.java`
+- `backend/src/main/java/com/ccnlthd/course_management/repository/CategoryRepository.java`
+- `backend/src/main/java/com/ccnlthd/course_management/repository/StudentRepository.java`
+- `backend/src/main/java/com/ccnlthd/course_management/repository/EnrollmentRepository.java`
+
+Validation and exception handling:
+
+- `backend/src/main/java/com/ccnlthd/course_management/dto/request/CourseRequest.java`
+- `backend/src/main/java/com/ccnlthd/course_management/dto/request/CategoryRequest.java`
+- `backend/src/main/java/com/ccnlthd/course_management/dto/request/StudentRequest.java`
+- `backend/src/main/java/com/ccnlthd/course_management/dto/request/EnrollmentRequest.java`
+- `backend/src/test/java/com/ccnlthd/course_management/CourseControllerValidationTests.java`
+- `backend/src/test/java/com/ccnlthd/course_management/RequestDtoValidationTests.java`
+- `backend/src/main/java/com/ccnlthd/course_management/exception/GlobalExceptionHandler.java`
+- `backend/src/test/java/com/ccnlthd/course_management/BusinessExceptionTests.java`
+- `backend/src/test/java/com/ccnlthd/course_management/GlobalExceptionHandlerTests.java`
 
 ### Testing
 
@@ -59,8 +87,11 @@ The repository tests did not run directly against runtime MySQL. Runtime benchma
 - `CourseDetailCacheInvalidator`: one-key eviction or full cache invalidation after transaction commit.
 - Course update/delete evicts one key; Category rename invalidates all Course detail entries.
 - `CourseCacheIntegrationTests`: MISS/HIT, JSON, TTL expiry, update/delete, Category rename, rollback and outer transaction timing.
+- Cache configuration: `backend/src/main/java/com/ccnlthd/course_management/config/CourseCacheConfig.java`.
+- Cache integration test: `backend/src/test/java/com/ccnlthd/course_management/CourseCacheIntegrationTests.java`.
 - `scripts/cache-performance/benchmark.ps1`: measured OFF/MISS/HIT at commit `2aa11d2aff81dab06dc0804016caf4f9e4425b28`.
 - `scripts/cache-performance/results/comparison-2026-10-04_170517.md`: validated same commit, endpoint, Course ID, workload, machine metadata and payload hash.
+- `scripts/cache-performance/results/tooling-smoke-2026-10-04_191900/`: direct post-Phase-B2 OFF/MISS/HIT tooling smoke; not performance evidence.
 - HIT median improved `60.590%` versus OFF and `69.583%` versus MISS; HIT DB SELECT delta was `1` versus `201` for OFF/MISS.
 
 ### CI and reproducibility

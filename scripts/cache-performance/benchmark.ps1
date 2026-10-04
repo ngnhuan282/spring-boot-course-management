@@ -54,25 +54,55 @@ $resultDirectory = Join-Path $resultsRootPath ("{0}_{1}" -f $runStartedAt.ToStri
 $requestRows = [System.Collections.Generic.List[object]]::new()
 $httpClient = $null
 
+function Invoke-NativeCommand {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [string[]]$Arguments = @(),
+        [Parameter(Mandatory = $true)][string]$FailureContext
+    )
+
+    $previousErrorActionPreference = $ErrorActionPreference
+    $nativeOutput = @()
+    $exitCode = $null
+    try {
+        $ErrorActionPreference = "Continue"
+        $nativeOutput = @(& $FilePath @Arguments 2>&1)
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    $outputLines = @($nativeOutput | ForEach-Object { $_.ToString() })
+    if ($null -eq $exitCode) {
+        throw "$FailureContext did not provide a native exit code."
+    }
+    if ($exitCode -ne 0) {
+        $message = ($outputLines -join [Environment]::NewLine).Trim()
+        if ([string]::IsNullOrWhiteSpace($message)) {
+            $message = "No native output was captured."
+        }
+        throw "$FailureContext failed with exit code ${exitCode}: $message"
+    }
+
+    return $outputLines
+}
+
 function Invoke-Compose {
     param([Parameter(Mandatory = $true)][string[]]$Arguments)
 
-    $output = & docker compose -f $composeFilePath @Arguments 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        $message = (@($output) | ForEach-Object { $_.ToString() }) -join [Environment]::NewLine
-        throw "docker compose failed: $message"
-    }
-
-    return @($output)
+    return @(Invoke-NativeCommand `
+        -FilePath "docker" `
+        -Arguments (@("compose", "-f", $composeFilePath) + $Arguments) `
+        -FailureContext "docker compose")
 }
 
 function Get-GitValue {
     param([Parameter(Mandatory = $true)][string[]]$Arguments)
 
-    $output = & git -C $repoRoot @Arguments 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "git command failed: $((@($output) -join ' '))"
-    }
+    $output = Invoke-NativeCommand `
+        -FilePath "git" `
+        -Arguments (@("-C", $repoRoot) + $Arguments) `
+        -FailureContext "git command"
 
     return ((@($output) -join [Environment]::NewLine).Trim())
 }
@@ -96,10 +126,16 @@ function Get-GitMetadata {
 }
 
 function Get-FirstOutputLine {
-    param([Parameter(Mandatory = $true)][scriptblock]$Command)
+    param([Parameter(Mandatory = $true)][object[]]$Output)
 
-    $output = & $Command 2>&1
-    return (@($output) | Select-Object -First 1).ToString().Trim()
+    $firstLine = @($Output | ForEach-Object { $_.ToString().Trim() } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        Select-Object -First 1)
+    if ($firstLine.Count -eq 0) {
+        throw "Native command returned no output."
+    }
+
+    return $firstLine[0]
 }
 
 function Get-SystemMetadata {
@@ -112,14 +148,18 @@ function Get-SystemMetadata {
         $ramBytes = $null
     }
 
-    $dockerVersion = (& docker version --format "{{.Client.Version}}|{{.Server.Version}}" 2>&1)
-    if ($LASTEXITCODE -ne 0) {
-        throw "Docker daemon is unavailable: $((@($dockerVersion) -join ' '))"
-    }
+    $dockerVersion = Invoke-NativeCommand `
+        -FilePath "docker" `
+        -Arguments @("version", "--format", "{{.Client.Version}}|{{.Server.Version}}") `
+        -FailureContext "Docker daemon check"
+    $javaVersion = Invoke-NativeCommand `
+        -FilePath "java" `
+        -Arguments @("-version") `
+        -FailureContext "Java version check"
 
     [xml]$pom = Get-Content -Raw -LiteralPath (Join-Path $repoRoot "backend\pom.xml")
     return [ordered]@{
-        Java = Get-FirstOutputLine -Command { java -version }
+        Java = Get-FirstOutputLine -Output $javaVersion
         SpringBoot = $pom.project.parent.version
         OS = [System.Runtime.InteropServices.RuntimeInformation]::OSDescription
         CPU = if ([string]::IsNullOrWhiteSpace($cpu)) { "UNAVAILABLE" } else { $cpu }
@@ -145,7 +185,8 @@ function Assert-ComposeServiceRunning {
 }
 
 function Get-DbSelectCounter {
-    $dbCommand = 'mysql -N -B -uroot -p"$MYSQL_ROOT_PASSWORD" -e "SHOW GLOBAL STATUS LIKE ''Com_select'';"'
+    # The hex literal avoids nested quote loss when Windows PowerShell builds native arguments.
+    $dbCommand = 'echo SHOW GLOBAL STATUS WHERE Variable_name=0x436f6d5f73656c656374\; | mysql -N -B -uroot -p$MYSQL_ROOT_PASSWORD'
     $output = Invoke-Compose -Arguments @("exec", "-T", $DbService, "sh", "-c", $dbCommand)
     $counterLine = @($output | Where-Object { $_.ToString() -match "Com_select" } | Select-Object -Last 1)
     if ($counterLine.Count -eq 0) {
@@ -411,7 +452,7 @@ try {
         }
         Database = [ordered]@{
             Service = $DbService
-            Counter = "SHOW GLOBAL STATUS LIKE 'Com_select'"
+            Counter = "SHOW GLOBAL STATUS WHERE Variable_name = 'Com_select'"
             SelectBefore = $dbSelectBefore
             SelectAfter = $dbSelectAfter
             SelectDelta = $dbSelectDelta
