@@ -36,25 +36,27 @@ Nhóm tập trung làm rõ và thực hành các nội dung:
 
 ## 2. Công nghệ sử dụng
 
-### Backend
+### Backend và dữ liệu
 
 - Java 21
 - Spring Boot 4.1.1
 - Maven
 - Spring Web
+- Spring Data JPA / Hibernate
 - Bean Validation
+- Spring Cache
+- Redis 7.4
+- MySQL 8.4 cho runtime
+- H2 in-memory ở chế độ tương thích MySQL cho test tự động
 - Lombok
 - Springdoc OpenAPI / Swagger UI
 
-### Dự kiến bổ sung
+### Kiểm thử và vận hành
 
-- Spring Data JPA
-- Database
-- Spring Cache
-- Redis
-- Testing
-- GitHub Actions
-- Docker / Docker Compose
+- JUnit 5, Mockito và MockMvc
+- Testcontainers Redis cho cache integration test
+- Docker Compose cho MySQL và Redis runtime
+- GitHub Actions workflow cho Maven verify và Surefire artifacts
 
 ---
 
@@ -66,7 +68,7 @@ spring-boot-course-management/
 │   ├── src/
 │   │   ├── main/
 │   │   │   ├── java/
-│   │   │   │   └── com/ccnlthd/coursemanagement/
+│   │   │   │   └── com/ccnlthd/course_management/
 │   │   │   │       ├── config/
 │   │   │   │       ├── controller/
 │   │   │   │       ├── dto/
@@ -95,7 +97,7 @@ spring-boot-course-management/
 
 ---
 
-## 4. Kiến trúc backend dự kiến
+## 4. Kiến trúc backend hiện tại
 
 Luồng xử lý chính:
 
@@ -130,6 +132,7 @@ Cài đặt trước:
 
 - **Java 21**
 - **Git**
+- **Docker Desktop** để chạy MySQL, Redis và cache integration test
 - IDE hỗ trợ Java/Spring Boot, khuyến nghị IntelliJ IDEA
 
 Kiểm tra Java:
@@ -196,6 +199,15 @@ hoặc:
 
 ```bash
 ./mvnw spring-boot:run
+```
+
+### Chạy test
+
+Cache integration test sử dụng Testcontainers Redis nên Docker daemon phải hoạt động. Chạy toàn bộ regression từ thư mục gốc repository:
+
+```powershell
+cd backend
+.\mvnw.cmd clean test
 ```
 
 Khi chạy thành công, ứng dụng mặc định hoạt động tại:
@@ -350,17 +362,17 @@ git commit -m "docs: configure Swagger OpenAPI"
 - [x] Kiểm tra project chạy trên port `8080`
 - [ ] Hoàn thiện tài liệu và minh chứng Tuần 1
 
-### Các giai đoạn tiếp theo
+### Các phần đã triển khai
 
-- [ ] Spring Data JPA và thiết kế Entity
-- [ ] CRUD cơ bản
-- [ ] Bean Validation
-- [ ] Global Exception Handler
-- [ ] Testing
-- [ ] Spring Cache + Redis
-- [ ] Đo và so sánh hiệu năng
-- [ ] Docker / Docker Compose
-- [ ] GitHub Actions
+- [x] Spring Data JPA và thiết kế Entity
+- [x] CRUD Category, Course, Student và Enrollment
+- [x] Bean Validation
+- [x] Global Exception Handler
+- [x] Unit, repository, API và cache integration tests
+- [x] Spring Cache + Redis cho Course detail
+- [x] Docker Compose cho MySQL và Redis
+- [x] GitHub Actions workflow đã được cấu hình
+- [ ] Đo và so sánh hiệu năng OFF/MISS/HIT
 - [ ] Hoàn thiện báo cáo và hands-on lab
 
 ---
