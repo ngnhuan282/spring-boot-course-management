@@ -150,10 +150,22 @@ Clone repository:
 git clone https://github.com/ngnhuan282/spring-boot-course-management.git
 ```
 
-Di chuyển vào backend:
+Từ thư mục gốc, chạy MySQL và Redis, rồi vào backend:
 
 ```bash
-cd spring-boot-course-management/backend
+cd spring-boot-course-management
+docker compose up -d --wait
+cd backend
+```
+
+Redis mặc định ở `localhost:6379`; TTL cache Course detail là 10 phút. Có thể đổi bằng `SPRING_DATA_REDIS_HOST`, `SPRING_DATA_REDIS_PORT` và `APP_CACHE_COURSE_DETAIL_TTL`.
+
+Chỉ `GET /api/courses/{id}` dùng cache `standaloneCourseDetails`. Sau khi sửa hoặc xóa Course thành công, entry tương ứng được xóa sau commit. Từ thư mục gốc có thể xem JSON và TTL bằng:
+
+```bash
+docker compose exec redis redis-cli --scan --pattern 'standaloneCourseDetails::*'
+docker compose exec redis redis-cli GET 'standaloneCourseDetails::1'
+docker compose exec redis redis-cli TTL 'standaloneCourseDetails::1'
 ```
 
 ### Windows PowerShell / CMD

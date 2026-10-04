@@ -1,4 +1,8 @@
 spring:
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/course_management}
     username: ${SPRING_DATASOURCE_USERNAME:course_user}
@@ -16,3 +20,7 @@ spring:
 
 server:
   port: 8080
+
+app:
+  cache:
+    course-detail-ttl: 10m
