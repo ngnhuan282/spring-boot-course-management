@@ -36,25 +36,27 @@ Nhóm tập trung làm rõ và thực hành các nội dung:
 
 ## 2. Công nghệ sử dụng
 
-### Backend
+### Backend và dữ liệu
 
 - Java 21
 - Spring Boot 4.1.1
 - Maven
 - Spring Web
+- Spring Data JPA / Hibernate
 - Bean Validation
+- Spring Cache
+- Redis 7.4
+- MySQL 8.4 cho runtime
+- H2 in-memory ở chế độ tương thích MySQL cho test tự động
 - Lombok
 - Springdoc OpenAPI / Swagger UI
 
-### Dự kiến bổ sung
+### Kiểm thử và vận hành
 
-- Spring Data JPA
-- Database
-- Spring Cache
-- Redis
-- Testing
-- GitHub Actions
-- Docker / Docker Compose
+- JUnit 5, Mockito và MockMvc
+- Testcontainers Redis cho cache integration test
+- Docker Compose cho MySQL và Redis runtime
+- GitHub Actions workflow cho Maven verify và Surefire artifacts
 
 ---
 
@@ -66,7 +68,7 @@ spring-boot-course-management/
 │   ├── src/
 │   │   ├── main/
 │   │   │   ├── java/
-│   │   │   │   └── com/ccnlthd/coursemanagement/
+│   │   │   │   └── com/ccnlthd/course_management/
 │   │   │   │       ├── config/
 │   │   │   │       ├── controller/
 │   │   │   │       ├── dto/
@@ -95,7 +97,7 @@ spring-boot-course-management/
 
 ---
 
-## 4. Kiến trúc backend dự kiến
+## 4. Kiến trúc backend hiện tại
 
 Luồng xử lý chính:
 
@@ -130,6 +132,7 @@ Cài đặt trước:
 
 - **Java 21**
 - **Git**
+- **Docker Desktop** để chạy MySQL, Redis và cache integration test
 - IDE hỗ trợ Java/Spring Boot, khuyến nghị IntelliJ IDEA
 
 Kiểm tra Java:
@@ -150,10 +153,34 @@ Clone repository:
 git clone https://github.com/ngnhuan282/spring-boot-course-management.git
 ```
 
-Di chuyển vào backend:
+Khởi động MySQL và Redis từ thư mục gốc của repository trước khi chạy backend:
 
 ```bash
-cd spring-boot-course-management/backend
+cd spring-boot-course-management
+docker compose up -d --wait
+cd backend
+```
+
+Nếu máy đã có MySQL dùng cổng `3306`, chọn cổng khác cho MySQL Docker và đặt URL kết nối backend tương ứng. Ví dụ trong PowerShell, từ thư mục gốc:
+
+```powershell
+$env:MYSQL_PORT = '3307'
+docker compose up -d --wait
+cd backend
+$env:SPRING_DATASOURCE_URL = 'jdbc:mysql://localhost:3307/course_management'
+.\mvnw.cmd spring-boot:run
+```
+
+`MYSQL_PORT` chỉ đổi cổng Docker công bố; backend cần `SPRING_DATASOURCE_URL` để kết nối đúng cổng đó.
+
+Ứng dụng dùng Redis tại `localhost:6379` và cache kết quả `GET /api/courses/{id}` trong 10 phút. Có thể đổi `REDIS_HOST`, `REDIS_PORT` và `COURSE_CACHE_TTL` bằng biến môi trường; cổng Docker Compose lấy từ `REDIS_PORT`. Sau khi cập nhật hoặc xóa Course, cache của Course đó được xóa. Đổi tên Category sẽ xóa toàn bộ cache Course detail vì response có `categoryName`.
+
+Có thể kiểm tra key và nội dung JSON từ thư mục gốc của repository bằng:
+
+```bash
+docker compose exec redis redis-cli --scan --pattern 'courseDetails::*'
+docker compose exec redis redis-cli GET 'courseDetails::1'
+docker compose exec redis redis-cli TTL 'courseDetails::1'
 ```
 
 ### Windows PowerShell / CMD
@@ -172,6 +199,15 @@ hoặc:
 
 ```bash
 ./mvnw spring-boot:run
+```
+
+### Chạy test
+
+Cache integration test sử dụng Testcontainers Redis nên Docker daemon phải hoạt động. Chạy toàn bộ regression từ thư mục gốc repository:
+
+```powershell
+cd backend
+.\mvnw.cmd clean test
 ```
 
 Khi chạy thành công, ứng dụng mặc định hoạt động tại:
@@ -326,17 +362,17 @@ git commit -m "docs: configure Swagger OpenAPI"
 - [x] Kiểm tra project chạy trên port `8080`
 - [ ] Hoàn thiện tài liệu và minh chứng Tuần 1
 
-### Các giai đoạn tiếp theo
+### Các phần đã triển khai
 
-- [ ] Spring Data JPA và thiết kế Entity
-- [ ] CRUD cơ bản
-- [ ] Bean Validation
-- [ ] Global Exception Handler
-- [ ] Testing
-- [ ] Spring Cache + Redis
-- [ ] Đo và so sánh hiệu năng
-- [ ] Docker / Docker Compose
-- [ ] GitHub Actions
+- [x] Spring Data JPA và thiết kế Entity
+- [x] CRUD Category, Course, Student và Enrollment
+- [x] Bean Validation
+- [x] Global Exception Handler
+- [x] Unit, repository, API và cache integration tests
+- [x] Spring Cache + Redis cho Course detail
+- [x] Docker Compose cho MySQL và Redis
+- [x] GitHub Actions workflow đã được cấu hình
+- [ ] Đo và so sánh hiệu năng OFF/MISS/HIT
 - [ ] Hoàn thiện báo cáo và hands-on lab
 
 ---

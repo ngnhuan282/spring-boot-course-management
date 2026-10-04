@@ -30,4 +30,4 @@
 | 409 | `DATA_CONFLICT` | A database constraint rejects a write, including a concurrent write that bypassed a service precheck. |
 | 500 | `UNCATEGORIZED_EXCEPTION` | An unexpected server error occurs. The exception is logged on the server. |
 
-`GlobalExceptionHandlerTests` checks the response shape and status for validation, 404, 409 and 500 cases. Run locally with MySQL from `docker-compose.yml`, then execute `cd backend` and `sh ./mvnw verify` (or `mvnw.cmd verify` on Windows). The GitHub Actions workflow runs the same build and tests with its own MySQL service and uploads Surefire XML reports.
+`GlobalExceptionHandlerTests` checks the response shape and status for validation, 404, 409 and 500 cases. Run `cd backend` and `sh ./mvnw verify` (or `mvnw.cmd verify` on Windows). Tests use the H2 datasource from `src/test/resources/application.yml`; Redis integration tests start Redis through Testcontainers. The GitHub Actions workflow uploads Surefire XML reports.

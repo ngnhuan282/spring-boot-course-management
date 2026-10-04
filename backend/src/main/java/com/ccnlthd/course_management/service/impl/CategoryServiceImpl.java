@@ -7,6 +7,7 @@ import com.ccnlthd.course_management.exception.AppException;
 import com.ccnlthd.course_management.exception.ErrorCode;
 import com.ccnlthd.course_management.repository.CategoryRepository;
 import com.ccnlthd.course_management.repository.CourseRepository;
+import com.ccnlthd.course_management.service.CourseDetailCacheInvalidator;
 import com.ccnlthd.course_management.service.CategoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
     private final CourseRepository courseRepository;
+    private final CourseDetailCacheInvalidator cacheInvalidator;
 
     @Override
     @Transactional
@@ -63,7 +65,9 @@ public class CategoryServiceImpl implements CategoryService {
 
         category.setName(name);
         category.setDescription(request.getDescription());
-        return CategoryResponse.from(categoryRepository.save(category));
+        CategoryResponse response = CategoryResponse.from(categoryRepository.save(category));
+        cacheInvalidator.clearAfterCommit();
+        return response;
     }
 
     @Override

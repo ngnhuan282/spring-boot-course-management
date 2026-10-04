@@ -9,8 +9,10 @@ import com.ccnlthd.course_management.exception.ErrorCode;
 import com.ccnlthd.course_management.repository.CategoryRepository;
 import com.ccnlthd.course_management.repository.CourseRepository;
 import com.ccnlthd.course_management.repository.EnrollmentRepository;
+import com.ccnlthd.course_management.service.CourseDetailCacheInvalidator;
 import com.ccnlthd.course_management.service.CourseService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +25,7 @@ public class CourseServiceImpl implements CourseService {
     private final CourseRepository courseRepository;
     private final CategoryRepository categoryRepository;
     private final EnrollmentRepository enrollmentRepository;
+    private final CourseDetailCacheInvalidator cacheInvalidator;
 
     @Override
     @Transactional
@@ -45,6 +48,7 @@ public class CourseServiceImpl implements CourseService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "courseDetails", key = "#id")
     public CourseResponse getCourseById(Long id) {
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.COURSE_NOT_FOUND));
@@ -75,7 +79,9 @@ public class CourseServiceImpl implements CourseService {
         course.setLevel(request.getLevel());
         course.setStatus(request.getStatus());
 
-        return CourseResponse.from(courseRepository.save(course));
+        CourseResponse response = CourseResponse.from(courseRepository.save(course));
+        cacheInvalidator.evictAfterCommit(id);
+        return response;
     }
 
     @Override
@@ -87,5 +93,6 @@ public class CourseServiceImpl implements CourseService {
             throw new AppException(ErrorCode.COURSE_HAS_ENROLLMENTS);
         }
         courseRepository.delete(course);
+        cacheInvalidator.evictAfterCommit(id);
     }
 }

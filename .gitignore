@@ -12,6 +12,7 @@
 
 # Logs
 *.log
+!reports/week4/raw/*.log
 
 # OS
 .DS_Store

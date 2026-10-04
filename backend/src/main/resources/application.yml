@@ -1,4 +1,13 @@
 spring:
+  cache:
+    type: redis
+    cache-names: courseDetails
+    redis:
+      time-to-live: ${COURSE_CACHE_TTL:10m}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/course_management}
     username: ${SPRING_DATASOURCE_USERNAME:course_user}

@@ -16,6 +16,7 @@ import com.ccnlthd.course_management.service.EnrollmentService;
 import com.ccnlthd.course_management.service.impl.EnrollmentServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -64,6 +65,55 @@ class EnrollmentCrudTests {
 
         assertEquals(2L, service.getAllEnrollments().getFirst().getStudentId());
         assertEquals(3L, service.getEnrollmentById(1L).getCourseId());
+    }
+
+    @Test
+    void createsEnrollmentWithExistingStudentAndCourse() {
+        Student student = student(2L);
+        Course course = course(3L);
+        when(studentRepository.findById(2L)).thenReturn(Optional.of(student));
+        when(courseRepository.findById(3L)).thenReturn(Optional.of(course));
+        when(enrollmentRepository.findByStudent_IdAndCourse_Id(2L, 3L)).thenReturn(Optional.empty());
+        when(enrollmentRepository.save(any(Enrollment.class))).thenAnswer(invocation -> {
+            Enrollment savedEnrollment = invocation.getArgument(0);
+            savedEnrollment.setId(7L);
+            return savedEnrollment;
+        });
+
+        EnrollmentResponse response = service.createEnrollment(request(2L, 3L));
+
+        ArgumentCaptor<Enrollment> savedEnrollment = ArgumentCaptor.forClass(Enrollment.class);
+        verify(enrollmentRepository).save(savedEnrollment.capture());
+        assertEquals(7L, response.getId());
+        assertEquals(2L, response.getStudentId());
+        assertEquals(3L, response.getCourseId());
+        assertEquals("ACTIVE", response.getStatus());
+        assertEquals(2L, savedEnrollment.getValue().getStudent().getId());
+        assertEquals(3L, savedEnrollment.getValue().getCourse().getId());
+    }
+
+    @Test
+    void reportsMissingStudentWhenCreatingEnrollment() {
+        when(studentRepository.findById(2L)).thenReturn(Optional.empty());
+
+        AppException exception = assertThrows(AppException.class,
+                () -> service.createEnrollment(request(2L, 3L)));
+
+        assertEquals(ErrorCode.STUDENT_NOT_FOUND, exception.getErrorCode());
+        verifyNoInteractions(courseRepository);
+        verifyNoInteractions(enrollmentRepository);
+    }
+
+    @Test
+    void reportsMissingCourseWhenCreatingEnrollment() {
+        when(studentRepository.findById(2L)).thenReturn(Optional.of(student(2L)));
+        when(courseRepository.findById(3L)).thenReturn(Optional.empty());
+
+        AppException exception = assertThrows(AppException.class,
+                () -> service.createEnrollment(request(2L, 3L)));
+
+        assertEquals(ErrorCode.COURSE_NOT_FOUND, exception.getErrorCode());
+        verifyNoInteractions(enrollmentRepository);
     }
 
     @Test
@@ -164,16 +214,22 @@ class EnrollmentCrudTests {
     }
 
     @Test
-    void exposesListDetailUpdateAndDeleteEndpoints() throws Exception {
+    void exposesAllCrudEndpoints() throws Exception {
         EnrollmentService apiService = mock(EnrollmentService.class);
         MockMvc mvc = mvc(apiService);
         EnrollmentResponse response = new EnrollmentResponse(1L, 2L, 3L, "ACTIVE",
                 LocalDateTime.of(2026, 9, 29, 10, 0));
+        when(apiService.createEnrollment(any(EnrollmentRequest.class))).thenReturn(response);
         when(apiService.getAllEnrollments()).thenReturn(List.of(response));
         when(apiService.getEnrollmentById(1L)).thenReturn(response);
         when(apiService.updateEnrollment(any(Long.class), any(EnrollmentRequest.class)))
                 .thenReturn(response);
 
+        mvc.perform(post("/api/enrollments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":2,\"courseId\":3,\"status\":\"ACTIVE\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(1));
         mvc.perform(get("/api/enrollments"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].studentId").value(2));
@@ -205,10 +261,15 @@ class EnrollmentCrudTests {
     }
 
     @Test
-    void invalidUpdateDoesNotReachService() throws Exception {
+    void invalidCreateAndUpdateDoNotReachService() throws Exception {
         EnrollmentService apiService = mock(EnrollmentService.class);
         MockMvc mvc = mvc(apiService);
 
+        mvc.perform(post("/api/enrollments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":null,\"courseId\":3,\"status\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
         mvc.perform(put("/api/enrollments/{id}", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"studentId\":null,\"courseId\":3,\"status\":\"\"}"))

@@ -12,6 +12,7 @@ import com.ccnlthd.course_management.repository.CategoryRepository;
 import com.ccnlthd.course_management.repository.CourseRepository;
 import com.ccnlthd.course_management.repository.EnrollmentRepository;
 import com.ccnlthd.course_management.service.CourseService;
+import com.ccnlthd.course_management.service.CourseDetailCacheInvalidator;
 import com.ccnlthd.course_management.service.impl.CourseServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,7 +52,8 @@ class CourseCrudTests {
         courseRepository = mock(CourseRepository.class);
         categoryRepository = mock(CategoryRepository.class);
         enrollmentRepository = mock(EnrollmentRepository.class);
-        service = new CourseServiceImpl(courseRepository, categoryRepository, enrollmentRepository);
+        service = new CourseServiceImpl(courseRepository, categoryRepository, enrollmentRepository,
+                mock(CourseDetailCacheInvalidator.class));
     }
 
     @Test
@@ -65,6 +67,19 @@ class CourseCrudTests {
         assertEquals(10L, responses.getFirst().getId());
         assertEquals("Backend", responses.getFirst().getCategoryName());
         assertEquals("Original", responses.getFirst().getTitle());
+    }
+
+    @Test
+    void readsCourseDetailAsResponseDto() {
+        Course course = course();
+        when(courseRepository.findById(10L)).thenReturn(Optional.of(course));
+
+        CourseResponse response = service.getCourseById(10L);
+
+        assertEquals(10L, response.getId());
+        assertEquals(1L, response.getCategoryId());
+        assertEquals("Backend", response.getCategoryName());
+        assertEquals("Original", response.getTitle());
     }
 
     @Test
@@ -146,7 +161,7 @@ class CourseCrudTests {
     }
 
     @Test
-    void exposesListUpdateAndDeleteEndpoints() throws Exception {
+    void exposesDetailListUpdateAndDeleteEndpoints() throws Exception {
         CourseService apiService = mock(CourseService.class);
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
@@ -156,9 +171,14 @@ class CourseCrudTests {
                 .build();
         CourseResponse response = new CourseResponse(10L, 2L, "Database", "Updated",
                 "Description", new BigDecimal("100.00"), "BEGINNER", "PUBLISHED");
+        when(apiService.getCourseById(10L)).thenReturn(response);
         when(apiService.getAllCourses()).thenReturn(List.of(response));
         when(apiService.updateCourse(any(Long.class), any(CourseRequest.class))).thenReturn(response);
 
+        mvc.perform(get("/api/courses/{id}", 10L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(10))
+                .andExpect(jsonPath("$.categoryName").value("Database"));
         mvc.perform(get("/api/courses"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(10))

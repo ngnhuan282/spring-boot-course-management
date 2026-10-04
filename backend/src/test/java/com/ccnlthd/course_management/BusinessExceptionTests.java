@@ -12,6 +12,7 @@ import com.ccnlthd.course_management.repository.CategoryRepository;
 import com.ccnlthd.course_management.repository.CourseRepository;
 import com.ccnlthd.course_management.repository.EnrollmentRepository;
 import com.ccnlthd.course_management.repository.StudentRepository;
+import com.ccnlthd.course_management.service.CourseDetailCacheInvalidator;
 import com.ccnlthd.course_management.service.impl.CourseServiceImpl;
 import com.ccnlthd.course_management.service.impl.EnrollmentServiceImpl;
 import org.junit.jupiter.api.Test;
@@ -33,7 +34,8 @@ class BusinessExceptionTests {
         CourseRepository courseRepository = mock(CourseRepository.class);
         CategoryRepository categoryRepository = mock(CategoryRepository.class);
         CourseServiceImpl courseService = new CourseServiceImpl(
-                courseRepository, categoryRepository, mock(EnrollmentRepository.class));
+                courseRepository, categoryRepository, mock(EnrollmentRepository.class),
+                mock(CourseDetailCacheInvalidator.class));
 
         CourseRequest request = validCourseRequest();
         when(categoryRepository.findById(404L)).thenReturn(Optional.empty());
@@ -53,7 +55,8 @@ class BusinessExceptionTests {
         CourseRepository courseRepository = mock(CourseRepository.class);
         CategoryRepository categoryRepository = mock(CategoryRepository.class);
         CourseServiceImpl courseService = new CourseServiceImpl(
-                courseRepository, categoryRepository, mock(EnrollmentRepository.class));
+                courseRepository, categoryRepository, mock(EnrollmentRepository.class),
+                mock(CourseDetailCacheInvalidator.class));
 
         when(courseRepository.findById(99L)).thenReturn(Optional.empty());
 
