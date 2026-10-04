@@ -1,0 +1,10 @@
+﻿{
+    "Status":  "FAILED",
+    "Timestamp":  "2026-10-04T16:55:34.8834468+07:00",
+    "Mode":  "OFF",
+    "Endpoint":  "http://localhost:8080/api/courses/1",
+    "CourseId":  1,
+    "CompletedMeasuredRequests":  0,
+    "Error":  "mysql: [Warning] Using a password on the command line interface can be insecure.",
+    "Note":  "No successful summary was generated."
+}

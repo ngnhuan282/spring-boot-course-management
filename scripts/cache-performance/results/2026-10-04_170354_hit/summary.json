@@ -1,0 +1,58 @@
+﻿{
+    "Status":  "SUCCESS",
+    "Timestamp":  "2026-10-04T17:03:54.7116948+07:00",
+    "StartTime":  "2026-10-04T17:03:54.7116948+07:00",
+    "EndTime":  "2026-10-04T17:03:59.5242512+07:00",
+    "MeasurementStartTime":  "2026-10-04T17:03:57.4478867+07:00",
+    "MeasurementEndTime":  "2026-10-04T17:03:58.7991939+07:00",
+    "Mode":  "HIT",
+    "Endpoint":  "http://localhost:8080/api/courses/1",
+    "CourseId":  1,
+    "CoursePayloadSha256":  "f66005bb73b459e336348f33aa2368d853992d17d396aeb05af6ab121cef1f64",
+    "Warmup":  20,
+    "MeasuredRequests":  100,
+    "Concurrency":  1,
+    "MetricsMs":  {
+                      "Average":  9.854,
+                      "Median":  8.883,
+                      "P95":  15.909,
+                      "Min":  6.554,
+                      "Max":  34.845
+                  },
+    "Database":  {
+                     "Service":  "mysql",
+                     "Counter":  "SHOW GLOBAL STATUS LIKE \u0027Com_select\u0027",
+                     "SelectBefore":  615,
+                     "SelectAfter":  616,
+                     "SelectDelta":  1,
+                     "Limitation":  "Com_select is global; unrelated database traffic can affect the delta."
+                 },
+    "Cache":  {
+                  "RedisService":  "redis",
+                  "CacheName":  "courseDetails",
+                  "RedisKey":  "courseDetails::1",
+                  "ExpectedTtlMinutes":  10,
+                  "MissContractTtlSeconds":  null,
+                  "TtlSecondsAfterPrime":  600,
+                  "TtlSecondsAfterRun":  597
+              },
+    "Repository":  {
+                       "Branch":  "feat/week4-cache-coverage-regression",
+                       "Commit":  "2aa11d2aff81dab06dc0804016caf4f9e4425b28",
+                       "RawWorkingTree":  "dirty",
+                       "SourceWorkingTree":  "clean"
+                   },
+    "Environment":  {
+                        "Java":  "java version \"22.0.2\" 2024-07-16",
+                        "SpringBoot":  "4.1.1",
+                        "OS":  "Microsoft Windows 10.0.26200 ",
+                        "CPU":  "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+                        "RamBytes":  16868974592,
+                        "Docker":  "28.4.0|28.4.0"
+                    },
+    "Files":  {
+                  "Requests":  "requests.csv",
+                  "JsonSummary":  "summary.json",
+                  "MarkdownSummary":  "summary.md"
+              }
+}

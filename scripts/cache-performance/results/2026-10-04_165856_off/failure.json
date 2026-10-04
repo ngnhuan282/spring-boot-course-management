@@ -1,0 +1,10 @@
+﻿{
+    "Status":  "FAILED",
+    "Timestamp":  "2026-10-04T16:58:56.7918461+07:00",
+    "Mode":  "OFF",
+    "Endpoint":  "http://localhost:8080/api/courses/1",
+    "CourseId":  1,
+    "CompletedMeasuredRequests":  0,
+    "Error":  "The variable \u0027$script:RealDocker\u0027 cannot be retrieved because it has not been set.",
+    "Note":  "No successful summary was generated."
+}

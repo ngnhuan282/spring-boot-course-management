@@ -3,171 +3,124 @@
 ## Repository state
 
 - Branch: `feat/week4-cache-coverage-regression`.
-- Base HEAD: `0470809a8db62694d390b179d46281e70d985df8`.
-- Upstream: `origin/feat/week4-cache-coverage-regression`.
-- Working tree: Dirty - Phase B1 changes have not been committed.
-- Regression evidence time: `2026-10-04T16:23:13+07:00`.
-- Cache status: `Integrated - benchmark pending Phase B2`.
+- Integration measurement commit: `2aa11d2aff81dab06dc0804016caf4f9e4425b28`.
+- Measurement source working tree: `clean` in OFF, MISS and HIT summaries.
+- Current working tree: dirty because Phase B2 benchmark results, raw regression log and reports are not committed.
+- Cache status: integrated; integration benchmark complete.
 - Final product commit: `PENDING_FINAL_PRODUCT_COMMIT`.
 - Commit/push/merge performed by Codex: no.
 
+Runtime metadata for the benchmark:
+
+- Java `22.0.2` on this machine; Maven/CI target Java `21`.
+- Spring Boot `4.1.1`.
+- Docker client/server `28.4.0`.
+- Docker Compose MySQL `8.4.11` at host port `13306`.
+- Docker Compose Redis `7.4-alpine` at host port `6379`.
+- `SPRING_JPA_SHOW_SQL=false` supplied to both runtime modes. Host `DEBUG=release` still caused Hibernate SQL DEBUG statements; this limitation is disclosed in Task 31 and must be controlled in the final develop rerun.
+
 ## Task 31 - Cache performance
 
+- Report: `reports/week4/task31-cache-performance.md`.
 - Benchmark script: `scripts/cache-performance/benchmark.ps1`.
 - Benchmark README: `scripts/cache-performance/README.md`.
-- Product cache contract: `GET /api/courses/{id}` -> `courseDetails::<id>`, production TTL `10m`.
-- Cache implementation and six integration tests are present and verified.
-- Multi-run metadata: `RawWorkingTree` plus `SourceWorkingTree`, which excludes only benchmark result folders.
-- DB query measurement: MySQL global `Com_select` before/after delta.
-- OFF result: `PENDING_PHASE_B2`.
-- MISS result: `PENDING_PHASE_B2`.
-- HIT result: `PENDING_PHASE_B2`.
-- Successful `requests.csv`, `summary.json` and `summary.md`: not created because official measurement must wait for the Phase B1 commit.
-- Report: `reports/week4/task31-cache-performance.md`.
-- Status: `PENDING_PHASE_B2`.
+- Endpoint: `GET /api/courses/1`.
+- Workload: 20 warm-up, 100 measured, concurrency 1.
+- Payload SHA-256 in all modes: `f66005bb73b459e336348f33aa2368d853992d17d396aeb05af6ab121cef1f64`.
+- Cache contract: `courseDetails::1`, JSON `CourseResponse`, production TTL 10 minutes.
 
-Historical Phase A evidence is retained and is not treated as a successful benchmark:
+| Mode | Evidence | Median | P95 | DB SELECT delta |
+|---|---|---:|---:|---:|
+| OFF | `scripts/cache-performance/results/2026-10-04_165922_off/` | 22.540ms | 41.520ms | 201 |
+| MISS | `scripts/cache-performance/results/2026-10-04_170219_miss/` | 29.204ms | 86.971ms | 201 |
+| HIT | `scripts/cache-performance/results/2026-10-04_170354_hit/` | 8.883ms | 15.909ms | 1 |
 
-- Failed OFF attempt: `scripts/cache-performance/results/2026-10-04_141627_off/failure.json`.
-- Cause: Docker daemon unavailable during that attempt.
-- Completed measured requests: `0`.
-- No latency or DB SELECT result is inferred from the failed attempt.
+- Comparison: `scripts/cache-performance/results/comparison-2026-10-04_170517.md`.
+- Median HIT improvement versus OFF: `60.590%`.
+- Median HIT improvement versus MISS: `69.583%`.
+- Status: `INTEGRATION_MEASUREMENT_COMPLETE`.
+
+Each successful run directory contains `requests.csv`, `summary.json` and `summary.md`. The comparison passed commit, branch, endpoint, Course ID, workload, machine metadata, source-tree and payload-hash invariants.
+
+Historical/failed benchmark evidence is retained and excluded from the comparison because every attempt completed zero measured requests:
+
+- `scripts/cache-performance/results/2026-10-04_141627_off/failure.json`: Docker unavailable in Phase A.
+- `scripts/cache-performance/results/2026-10-04_165353_off/failure.json`: native Java stderr handling.
+- `scripts/cache-performance/results/2026-10-04_165532_off/failure.json`: native MySQL warning handling.
+- `scripts/cache-performance/results/2026-10-04_165856_off/failure.json`: process-local adapter scope error.
+
+The benchmark portability issue is recorded in `reports/week4/bug-log.md`; no failed attempt is presented as performance evidence.
 
 ## Task 35 - Technical coverage
 
 - Coverage report: `reports/week4/task35-technical-coverage.md`.
-- Base product commit: `0470809a8db62694d390b179d46281e70d985df8`.
-- T1 evidence: controllers, services, entities, repositories and JPA relations.
-- Optional evidence: Bean Validation and standardized exception handling.
-- T2 evidence: Git workflow, testing, CI configuration, Swagger, README and Docker Compose.
-- T3 cache evidence: Course detail Redis cache, JSON serialization, TTL and after-commit invalidation.
-- Cache row: `Integrated - benchmark pending`.
-- CI status: workflow configured; successful GitHub run still needs external evidence.
+- T1: IoC/DI, Controller-Service layering and Spring Data JPA.
+- Optional: Bean Validation and standardized exception handling.
+- T2: Git workflow, automated testing, configured CI, Swagger/OpenAPI, README and Docker Compose.
+- T3: Course detail Spring Cache/Redis, JSON serialization, TTL and after-commit invalidation.
+- Cache verification: six Testcontainers Redis tests plus official integration OFF/MISS/HIT evidence.
+- Cache row: `Integrated`.
+- Overall status: `INTEGRATION_CANDIDATE_COMPLETE`.
+- CI status: workflow configured; successful GitHub run still needs external URL/screenshot evidence.
 - Final develop/product commit refresh: required after the real merge.
 
 ## Task 36 - Regression
 
+- Report: `reports/week4/task36-regression.md`.
 - Command: `.\mvnw.cmd clean test` from `backend`.
-- Official Phase B1 log: `reports/week4/raw/regression-integration-2026-10-04_162137.log` (UTF-8).
+- Final raw UTF-8 log: `reports/week4/raw/regression-integration-final-2026-10-04_170645.log`.
 - Test suites: `11`.
-- Total tests: `71`.
-- Passed: `71`.
-- Failures: `0`.
-- Errors: `0`.
-- Skipped: `0`.
+- Total/passed: `71/71`.
+- Failures/errors/skipped: `0/0/0`.
 - Cache integration: `6/6` passed with Testcontainers Redis 7.4-alpine.
 - Automated datasource: H2 in-memory with MySQL compatibility mode.
-- Runtime Compose environment: MySQL 8.4 plus Redis 7.4-alpine, pending Phase B2 verification.
-- Regression report: `reports/week4/task36-regression.md`.
+- Runtime benchmark: Compose MySQL 8.4.11 plus Redis 7.4-alpine, production TTL 10 minutes.
+- Course demo: `REPRODUCIBLE`; see `reports/week4/course-demo-reproducibility.md`.
 - Bug log: `reports/week4/bug-log.md`.
-- Status: integrated regression `PASS`; runtime demo and official benchmark `PENDING_PHASE_B2`.
+- Status: `PASS` on the integration candidate; final develop rerun required.
 
-Historical Phase A regression evidence remains available:
+Historical regression evidence remains available and is not presented as the final Phase B2 run:
 
-- `reports/week4/raw/regression-2026-10-04_150246.log` - previous 65-test passing run.
-- `reports/week4/raw/regression-2026-10-04_141505.log` - earlier 65-test passing run.
-- `reports/week4/raw/regression-environment-blocked-2026-10-04_141429.log` - preliminary environment failure.
-
-These files are retained for traceability and are not presented as the Phase B1 integrated result.
+- `reports/week4/raw/regression-integration-2026-10-04_162137.log`: Phase B1, 71 tests passed.
+- `reports/week4/raw/regression-2026-10-04_150246.log`: Phase A, 65 tests passed.
+- `reports/week4/raw/regression-2026-10-04_141505.log`: earlier Phase A, 65 tests passed.
+- `reports/week4/raw/regression-environment-blocked-2026-10-04_141429.log`: preliminary environment failure.
 
 ## AI disclosure evidence
 
 - AI issue log: `reports/week4/ai-issue-log.md`.
-- Real issues recorded: `2`.
-- Issue 1: the first MISS benchmark draft did not verify that the expected Redis key and positive TTL were created.
+- Real AI issues recorded: exactly `2`.
+- Issue 1: the first MISS benchmark draft did not verify expected Redis key creation and positive TTL.
 - Issue 2: benchmark output was initially created before Git metadata capture and could make a clean tree appear dirty.
-- No additional AI issue was invented.
-
-## Evidence needed for report screenshots
-
-### Suggested Figure 12.7 - Integrated regression
-
-Capture the terminal showing:
-
-- branch and commit output;
-- `Tests run: 71, Failures: 0, Errors: 0, Skipped: 0`;
-- `BUILD SUCCESS`;
-- the six passing `CourseCacheIntegrationTests`.
-
-### Suggested Figure 12.8 - Cache OFF/MISS/HIT
-
-Status: `PENDING_PHASE_B2`.
-
-After the Phase B1 commit, capture the same endpoint and Course ID with:
-
-- matching `CoursePayloadSha256` for OFF, MISS and HIT;
-- `SourceWorkingTree = clean` for all three runs;
-- Redis key `courseDetails::<id>` for MISS/HIT;
-- latency and `Com_select` comparison from the three summaries.
-
-### Suggested Figure 12.9 - Cache invalidation
-
-Automated integration status: `PASS`.
-
-Runtime screenshot remains Phase B2 evidence. Capture:
-
-- cached Course value before update;
-- Course update/delete or Category rename;
-- expected Redis key eviction/invalidation;
-- next GET returning current data.
+- No third AI issue was added.
 
 ## Screenshot checklist
 
-### Chapter 12
+The following screenshots still need to be captured by a team member; none is claimed as already available:
 
+- [ ] Current commit plus Maven `BUILD SUCCESS` and `Tests run: 71, Failures: 0, Errors: 0, Skipped: 0`
+- [ ] Six passing `CourseCacheIntegrationTests`
 - [ ] Swagger UI displays Category, Course, Student and Enrollment APIs
 - [ ] Enrollment creation succeeds with HTTP 201
 - [ ] Enrollment validation fails with HTTP 400
 - [ ] Duplicate Enrollment fails with HTTP 409
 - [ ] MySQL Enrollment row shows `student_id` and `course_id`
-- [ ] Maven/Surefire result shows 71 passing tests and the current commit
-- [ ] Cache integration suite shows 6 passing tests
+- [ ] Redis key `courseDetails::1` and positive TTL
+- [ ] OFF/MISS/HIT comparison with matching payload SHA-256 and commit
+- [ ] Cache invalidation after Course update/delete or Category rename
 - [ ] GitHub Actions successful run, if available
 - [ ] GitHub PR reviewer and merge evidence
-- [ ] Redis key and official cache OFF/MISS/HIT evidence from Phase B2
-- [ ] Runtime cache invalidation evidence from Phase B2
+- [ ] Qualifying product bug before/after evidence only if one actually occurs
 
-### Chapter 13
+## Required after the real develop merge
 
-- [ ] Qualifying real product bug raw error/log, if one occurs
-- [ ] Matching fixed result for a qualifying real product bug, if one occurs
-
-## Exact next commands after the Phase B1 commit
-
-At repository root, start the runtime services:
+These integration-branch numbers are not product-final evidence. After merge:
 
 ```powershell
-docker compose up -d --wait mysql redis
-docker compose ps
+git switch develop
+git pull
+git rev-parse HEAD
+git status
 ```
 
-In a backend terminal, start OFF with cache and SQL console logging disabled:
-
-```powershell
-cd backend
-$env:SPRING_CACHE_TYPE="none"
-$env:SPRING_JPA_SHOW_SQL="false"
-.\mvnw.cmd spring-boot:run
-```
-
-In another terminal at repository root:
-
-```powershell
-.\scripts\cache-performance\benchmark.ps1 -Mode off -CourseId 1 -Warmup 20 -Runs 100
-```
-
-Restart the backend from `backend` with cache enabled before MISS/HIT:
-
-```powershell
-cd backend
-Remove-Item Env:SPRING_CACHE_TYPE -ErrorAction SilentlyContinue
-$env:SPRING_JPA_SHOW_SQL="false"
-.\mvnw.cmd spring-boot:run
-```
-
-Then run from repository root in another terminal:
-
-```powershell
-.\scripts\cache-performance\benchmark.ps1 -Mode miss -CourseId 1 -Warmup 20 -Runs 100
-.\scripts\cache-performance\benchmark.ps1 -Mode hit -CourseId 1 -Warmup 20 -Runs 100
-```
+Then run a fresh full regression and repeat OFF, MISS and HIT with the same endpoint, Course ID, workload and payload-hash validation. Refresh Task 31, Task 35 and Task 36 with the final develop commit and use only those new numbers for the final Chapter 12 product claim.

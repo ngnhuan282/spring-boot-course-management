@@ -2,23 +2,21 @@
 
 ## 1. Objective
 
-Measure the same Course detail endpoint, Course ID, database data, workload, machine and source commit in cache `OFF`, `MISS` and `HIT` modes. Conclusions will use only measured latency and database SELECT evidence from the official Phase B2 runs.
-
-Phase B1 prepares and validates the integrated source. It does not produce official OFF/MISS/HIT numbers.
+Measure the same Course detail endpoint, Course ID, database data, workload, machine and source commit in cache `OFF`, `MISS` and `HIT` modes. Conclusions use only measured latency and database SELECT evidence from the official Phase B2 runs.
 
 ## 2. Integration snapshot
 
 | Item | Value |
 |---|---|
 | Branch | `feat/week4-cache-coverage-regression` |
-| Base HEAD | `0470809a8db62694d390b179d46281e70d985df8` |
-| Working tree | Dirty - uncommitted TV2 Phase B1 work |
+| Integration measurement commit | `2aa11d2aff81dab06dc0804016caf4f9e4425b28` |
+| Source working tree during all runs | Clean |
 | Final product commit | `PENDING_FINAL_PRODUCT_COMMIT` |
 | Java runtime | `22.0.2` |
 | Maven target / CI Java | `21` |
 | Spring Boot | `4.1.1` |
-| Docker daemon | Available during Phase B1 preflight |
-| Runtime database | MySQL 8.4 via Docker Compose |
+| Docker client/server | `28.4.0` / `28.4.0` |
+| Runtime database | MySQL `8.4.11` via Docker Compose, host port `13306` |
 | Runtime cache | Redis 7.4-alpine via Docker Compose |
 | Production cache TTL | 10 minutes |
 
@@ -68,7 +66,7 @@ Invalidation is implemented by the custom `CourseDetailCacheInvalidator`, not `@
 - Timing starts immediately before HTTP send and stops after the complete response body is read.
 - Statistics: Average, Median, P95 nearest-rank, Min and Max.
 - Primary comparison: Median, P95 and MySQL `Com_select` delta.
-- Hibernate SQL console logging is disabled with `SPRING_JPA_SHOW_SQL=false` for every latency run.
+- `SPRING_JPA_SHOW_SQL=false` was supplied for every latency run, so Hibernate's `show-sql` property was disabled. The host environment also contained `DEBUG=release`, which enabled Spring Boot debug logging and still emitted Hibernate SQL DEBUG statements. This is a limitation of this integration measurement and must be removed or explicitly controlled for the final develop measurement.
 
 ## 6. Working-tree metadata
 
@@ -113,19 +111,53 @@ SHOW GLOBAL STATUS LIKE 'Com_select';
 
 `Com_select` is a global MySQL counter, so unrelated database traffic can affect the delta. Official measurements must run without other database traffic.
 
-## 9. Current result status
+## 9. Phase B2 results
 
-| Mode | Median | P95 | DB SELECT delta | Status |
-|---|---:|---:|---:|---|
-| OFF | Not measured | Not measured | Not measured | `PENDING_PHASE_B2` |
-| MISS | Not measured | Not measured | Not measured | `PENDING_PHASE_B2` |
-| HIT | Not measured | Not measured | Not measured | `PENDING_PHASE_B2` |
+Course ID `1` was verified through the live API before measurement. All three summaries report the same endpoint, workload, machine metadata, integration commit and payload SHA-256.
 
-The Phase A OFF attempt at `2026-10-04T14:16:28+07:00` remains historical failure evidence at `scripts/cache-performance/results/2026-10-04_141627_off/failure.json`. Docker was unavailable then, no measured request completed, and it is not performance evidence.
+| Metric | OFF | MISS | HIT |
+|---|---:|---:|---:|
+| Average (ms) | 27.275 | 35.962 | 9.854 |
+| Median (ms) | 22.540 | 29.204 | 8.883 |
+| P95 nearest-rank (ms) | 41.520 | 86.971 | 15.909 |
+| Min (ms) | 15.318 | 12.392 | 6.554 |
+| Max (ms) | 131.089 | 138.636 | 34.845 |
+| DB SELECT delta | 201 | 201 | 1 |
+| Cache TTL evidence | Not accessed | MISS contract: 600s | Prime: 600s; after run: 597s |
+| Source working tree | Clean | Clean | Clean |
 
-No performance conclusion is made in Phase B1.
+Payload SHA-256 for OFF, MISS and HIT:
 
-## 10. Evidence and next step
+```text
+f66005bb73b459e336348f33aa2368d853992d17d396aeb05af6ab121cef1f64
+```
+
+Measured improvements:
+
+- Median HIT improvement versus OFF: `60.590%`.
+- Median HIT improvement versus MISS: `69.583%`.
+- DB SELECT reduction for HIT versus OFF and MISS: `99.502%`.
+
+The HIT median and P95 are lower than both OFF and MISS. Therefore this integration-branch measurement supports the conclusion that cache hits reduced Course-detail latency for this sequential workload. It does not establish final product performance.
+
+## 10. Result evidence
+
+- OFF: `scripts/cache-performance/results/2026-10-04_165922_off/`.
+- MISS: `scripts/cache-performance/results/2026-10-04_170219_miss/`.
+- HIT: `scripts/cache-performance/results/2026-10-04_170354_hit/`.
+- Comparison: `scripts/cache-performance/results/comparison-2026-10-04_170517.md`.
+- Each run directory contains `requests.csv`, `summary.json` and `summary.md`.
+
+The historical failed attempts remain retained for traceability and are not included in the performance comparison. Each has `CompletedMeasuredRequests = 0`:
+
+- `2026-10-04_141627_off`: Docker daemon unavailable during Phase A.
+- `2026-10-04_165353_off`: native Java version output was treated as a terminating stderr record.
+- `2026-10-04_165532_off`: native MySQL warning output was treated as a terminating stderr record.
+- `2026-10-04_165856_off`: the process-local command adapter used for the rerun referenced the wrong scope.
+
+The successful measurements used a process-local PowerShell adapter to normalize native stderr handling and execute the intended read-only `Com_select` query. The repository benchmark script and runtime configuration were not edited between OFF, MISS and HIT.
+
+## 11. Integration versus final product evidence
 
 - Benchmark CLI: `scripts/cache-performance/benchmark.ps1`.
 - Usage and formulas: `scripts/cache-performance/README.md`.
@@ -135,4 +167,6 @@ No performance conclusion is made in Phase B1.
 - Category service: `backend/src/main/java/com/ccnlthd/course_management/service/impl/CategoryServiceImpl.java`.
 - Runtime configuration: `backend/src/main/resources/application.yml` and `docker-compose.yml`.
 
-After the user commits Phase B1, Phase B2 must run OFF/MISS/HIT from that stable commit, verify `SourceWorkingTree = clean` for every run and compare the three payload hashes before reporting results.
+Status: `INTEGRATION_MEASUREMENT_COMPLETE` at commit `2aa11d2aff81dab06dc0804016caf4f9e4425b28`.
+
+After the real merge into `develop`, rerun regression and OFF/MISS/HIT from the final develop commit. Only those later numbers may be presented as final Chapter 12 product performance evidence.

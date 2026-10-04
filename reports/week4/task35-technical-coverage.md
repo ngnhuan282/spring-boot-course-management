@@ -3,14 +3,14 @@
 ## Snapshot analyzed
 
 - Branch: `feat/week4-cache-coverage-regression`.
-- Base HEAD: `0470809a8db62694d390b179d46281e70d985df8`.
-- Base commit subject: `fix(ci): use H2 datasource for tests`.
-- Working tree: Dirty - TV2 integration work is not committed.
+- Integration measurement commit: `2aa11d2aff81dab06dc0804016caf4f9e4425b28`.
+- Measurement source working tree: Clean for OFF, MISS and HIT.
+- Current working tree: Dirty only because Phase B2 evidence has not been committed.
 - Final product commit: `PENDING_FINAL_PRODUCT_COMMIT`.
-- Regression evidence time: `2026-10-04T16:23:13+07:00`.
+- Final regression evidence time: `2026-10-04T17:07:54+07:00`.
 - Local Java: `22.0.2`; Maven target and CI Java: `21`.
 
-This is a Phase B1 snapshot. It must not be presented as the final develop commit.
+This is an integration-candidate snapshot. It must not be presented as the final develop commit.
 
 ## Coverage table
 
@@ -25,8 +25,8 @@ This is a Phase B1 snapshot. It must not be presented as the final develop commi
 | 7 | Automated testing | T2 | Unit, service, repository, MockMvc and cache integration tests | `71/71` passed on 2026-10-04 | Integrated | Local run used JDK 22.0.2 |
 | 8 | CI | T2 | `.github/workflows/ci.yml`: Ubuntu, Java 21, Maven verify, Surefire upload | Workflow configuration inspected | Configured | GitHub run success needs external evidence |
 | 9 | Swagger / OpenAPI | T2 | Springdoc dependency and `/swagger-ui/index.html` documentation | Source and README inspection | Integrated | Live UI screenshot remains runtime evidence |
-| 10 | Docker / datasource reproducibility | T2 | Compose MySQL 8.4 and Redis 7.4-alpine; environment-based datasource/cache config | Compose and configuration inspection | Integrated | Runtime Course demo remains Phase B2 |
-| 11 | Spring Cache + Redis | T3 | Course detail cache, JSON response serialization, TTL and after-commit invalidation | Six Testcontainers Redis tests passed | Integrated - benchmark pending | Official OFF/MISS/HIT remains Phase B2 |
+| 10 | Docker / datasource reproducibility | T2 | Compose MySQL 8.4 and Redis 7.4-alpine; environment-based datasource/cache config | Runtime benchmark plus isolated Course demo | Integrated | Final develop rerun remains required |
+| 11 | Spring Cache + Redis | T3 | Course detail cache, JSON response serialization, TTL and after-commit invalidation | Six Testcontainers Redis tests plus official integration OFF/MISS/HIT | Integrated | Integration measurement is not a final product claim |
 
 Task31 runtime measurement is evidence for the Cache/Redis row; it is not counted as a separate T3 technique.
 
@@ -45,11 +45,11 @@ All paths above are under `backend/src/main/java/com/ccnlthd/course_management` 
 
 - Command: `.\mvnw.cmd clean test` from `backend`.
 - Result: `71` tests, `0` failures, `0` errors, `0` skipped.
-- Official Phase B1 log: `reports/week4/raw/regression-integration-2026-10-04_162137.log`.
+- Final Phase B2 integration log: `reports/week4/raw/regression-integration-final-2026-10-04_170645.log`.
 - Automated application datasource: H2 in-memory with MySQL compatibility mode.
 - Cache integration backend: Testcontainers `redis:7.4-alpine` with a test-only TTL of 5 seconds.
 
-The repository tests did not run directly against runtime MySQL. Runtime benchmark evidence will use MySQL 8.4 and Redis 7.4-alpine from Docker Compose with the production TTL of 10 minutes.
+The repository tests did not run directly against runtime MySQL. Runtime benchmark evidence used MySQL 8.4.11 and Redis 7.4-alpine from Docker Compose with the production TTL of 10 minutes.
 
 ### Cache / Redis
 
@@ -59,7 +59,9 @@ The repository tests did not run directly against runtime MySQL. Runtime benchma
 - `CourseDetailCacheInvalidator`: one-key eviction or full cache invalidation after transaction commit.
 - Course update/delete evicts one key; Category rename invalidates all Course detail entries.
 - `CourseCacheIntegrationTests`: MISS/HIT, JSON, TTL expiry, update/delete, Category rename, rollback and outer transaction timing.
-- `scripts/cache-performance/benchmark.ps1`: prepared for official OFF/MISS/HIT measurement after the Phase B1 commit.
+- `scripts/cache-performance/benchmark.ps1`: measured OFF/MISS/HIT at commit `2aa11d2aff81dab06dc0804016caf4f9e4425b28`.
+- `scripts/cache-performance/results/comparison-2026-10-04_170517.md`: validated same commit, endpoint, Course ID, workload, machine metadata and payload hash.
+- HIT median improved `60.590%` versus OFF and `69.583%` versus MISS; HIT DB SELECT delta was `1` versus `201` for OFF/MISS.
 
 ### CI and reproducibility
 
@@ -69,10 +71,11 @@ The repository tests did not run directly against runtime MySQL. Runtime benchma
 - CI uploads Surefire XML, but no successful GitHub Actions run URL or screenshot was inspected in this session.
 - README now documents implemented technologies, the real package path, Maven test command and Docker requirement for cache tests.
 
-## Phase B1 status
+## Phase B2 status
 
-- Cache implementation: `Integrated` and verified by Testcontainers Redis.
-- Cache benchmark: `PENDING_PHASE_B2`.
+- Technical coverage: `INTEGRATION_CANDIDATE_COMPLETE`.
+- Cache implementation: `Integrated`, verified by Testcontainers Redis and runtime benchmark.
+- Course demo: `REPRODUCIBLE` at commit `e303057cee465dc0c7f17567860c33b6a3607d45` using an isolated database.
 - CI run success: `NEEDS_EXTERNAL_GITHUB_EVIDENCE`.
 - Final product commit: `PENDING_FINAL_PRODUCT_COMMIT`.
 - Final develop rerun after merge: required.
