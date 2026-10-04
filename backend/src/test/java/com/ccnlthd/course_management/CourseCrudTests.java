@@ -12,6 +12,7 @@ import com.ccnlthd.course_management.repository.CategoryRepository;
 import com.ccnlthd.course_management.repository.CourseRepository;
 import com.ccnlthd.course_management.repository.EnrollmentRepository;
 import com.ccnlthd.course_management.service.CourseService;
+import com.ccnlthd.course_management.service.CourseDetailCacheInvalidator;
 import com.ccnlthd.course_management.service.impl.CourseServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,7 +52,8 @@ class CourseCrudTests {
         courseRepository = mock(CourseRepository.class);
         categoryRepository = mock(CategoryRepository.class);
         enrollmentRepository = mock(EnrollmentRepository.class);
-        service = new CourseServiceImpl(courseRepository, categoryRepository, enrollmentRepository);
+        service = new CourseServiceImpl(courseRepository, categoryRepository, enrollmentRepository,
+                mock(CourseDetailCacheInvalidator.class));
     }
 
     @Test

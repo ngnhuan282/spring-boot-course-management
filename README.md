@@ -150,10 +150,34 @@ Clone repository:
 git clone https://github.com/ngnhuan282/spring-boot-course-management.git
 ```
 
-Di chuyển vào backend:
+Khởi động MySQL và Redis từ thư mục gốc của repository trước khi chạy backend:
 
 ```bash
-cd spring-boot-course-management/backend
+cd spring-boot-course-management
+docker compose up -d --wait
+cd backend
+```
+
+Nếu máy đã có MySQL dùng cổng `3306`, chọn cổng khác cho MySQL Docker và đặt URL kết nối backend tương ứng. Ví dụ trong PowerShell, từ thư mục gốc:
+
+```powershell
+$env:MYSQL_PORT = '3307'
+docker compose up -d --wait
+cd backend
+$env:SPRING_DATASOURCE_URL = 'jdbc:mysql://localhost:3307/course_management'
+.\mvnw.cmd spring-boot:run
+```
+
+`MYSQL_PORT` chỉ đổi cổng Docker công bố; backend cần `SPRING_DATASOURCE_URL` để kết nối đúng cổng đó.
+
+Ứng dụng dùng Redis tại `localhost:6379` và cache kết quả `GET /api/courses/{id}` trong 10 phút. Có thể đổi `REDIS_HOST`, `REDIS_PORT` và `COURSE_CACHE_TTL` bằng biến môi trường; cổng Docker Compose lấy từ `REDIS_PORT`. Sau khi cập nhật hoặc xóa Course, cache của Course đó được xóa. Đổi tên Category sẽ xóa toàn bộ cache Course detail vì response có `categoryName`.
+
+Có thể kiểm tra key và nội dung JSON từ thư mục gốc của repository bằng:
+
+```bash
+docker compose exec redis redis-cli --scan --pattern 'courseDetails::*'
+docker compose exec redis redis-cli GET 'courseDetails::1'
+docker compose exec redis redis-cli TTL 'courseDetails::1'
 ```
 
 ### Windows PowerShell / CMD

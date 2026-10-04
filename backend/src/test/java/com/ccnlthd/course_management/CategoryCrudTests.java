@@ -10,6 +10,7 @@ import com.ccnlthd.course_management.exception.GlobalExceptionHandler;
 import com.ccnlthd.course_management.repository.CategoryRepository;
 import com.ccnlthd.course_management.repository.CourseRepository;
 import com.ccnlthd.course_management.service.CategoryService;
+import com.ccnlthd.course_management.service.CourseDetailCacheInvalidator;
 import com.ccnlthd.course_management.service.impl.CategoryServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,7 +48,8 @@ class CategoryCrudTests {
     void setUp() {
         categoryRepository = mock(CategoryRepository.class);
         courseRepository = mock(CourseRepository.class);
-        service = new CategoryServiceImpl(categoryRepository, courseRepository);
+        service = new CategoryServiceImpl(categoryRepository, courseRepository,
+                mock(CourseDetailCacheInvalidator.class));
     }
 
     @Test
