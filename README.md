@@ -150,6 +150,23 @@ Clone repository:
 git clone https://github.com/ngnhuan282/spring-boot-course-management.git
 ```
 
+Nếu muốn chạy bản Course độc lập, chọn đúng nhánh sau khi tải mã:
+
+```powershell
+cd spring-boot-course-management
+git switch refactor/course-standalone
+```
+
+Mở thư mục gốc bằng IntelliJ IDEA và nhập [pom.xml](pom.xml) ở thư mục gốc như một dự án Maven. Tệp này khai báo mô-đun `backend`; các thư viện Spring Cache và Spring Data Redis nằm trong [backend/pom.xml](backend/pom.xml). Chọn Java 21 cho dự án, rồi dùng **Reload All Maven Projects** sau mỗi lần chuyển nhánh hoặc kéo mã mới. Không chép riêng `CacheConfig.java` sang một nhánh khác mà thiếu `backend/pom.xml`.
+
+Trước khi chạy ứng dụng, kiểm tra mã từ thư mục gốc:
+
+```powershell
+.\backend\mvnw.cmd -B -f pom.xml compile
+```
+
+Nếu lệnh trên báo `BUILD SUCCESS` nhưng trình soạn thảo vẫn tô đỏ `org.springframework.data.redis`, tải lại dự án Maven trong trình soạn thảo; đó là trạng thái thư viện của trình soạn thảo, không phải lỗi biên dịch Java. Nếu Maven báo lỗi, gửi dòng `[ERROR]` đầu tiên để xác định thiếu thư viện hay cấu hình.
+
 Từ thư mục gốc, chạy MySQL và Redis, rồi vào backend:
 
 ```bash
