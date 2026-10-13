@@ -1,0 +1,52 @@
+﻿{
+    "status":  "passed",
+    "started_at":  "2026-10-12T07:27:24.6249048Z",
+    "git_before":  {
+                       "commit":  "8204fb1e211f83f048eccf129c4a41c8065db94a",
+                       "branch":  "test/m15-category-cache-evidence",
+                       "status":  [
+                                      " M backend/src/test/java/com/ccnlthd/course_management/CourseCacheIntegrationTests.java",
+                                      "?? backend/src/test/java/com/ccnlthd/course_management/M15CategoryCacheEvidenceTests.java",
+                                      "?? backend/src/test/java/com/ccnlthd/course_management/support/",
+                                      "?? docs/m15/"
+                                  ]
+                   },
+    "source_identity":  "HEAD plus source-sha256.csv and source snapshots; working changes are NOT part of HEAD.",
+    "application_cache":  "courseDetails",
+    "application_key_format":  "courseDetails::\u003ccourseId\u003e",
+    "cached_dto":  "CourseResponse: id, categoryId, categoryName, title, description, price, level, status",
+    "key_serializer":  "StringRedisSerializer (RedisCacheConfiguration default)",
+    "value_serializer":  "JacksonJsonRedisSerializer\u003cCourseResponse\u003e",
+    "default_ttl_seconds":  600,
+    "expiry_test_override_seconds":  5,
+    "older_mutation_tests":  "CourseCacheIntegrationTests extends selected keys to 30s; its expiry test does not.",
+    "database":  "H2 in MySQL compatibility mode; isolated test database, not Compose MySQL",
+    "redis":  "Separate real redis:7.4-alpine Testcontainers for each cache test class; not Compose Redis",
+    "http":  "Real controllers/services via MockMvc in five M15 tests; expiry test calls the real service",
+    "query_method":  "Hibernate StatementInspector; SELECTs touching courses/categories, excluding DB snapshot reads; JOIN counts can overlap",
+    "performance":  "No HTTP latency benchmark or integrated performance percentage is collected.",
+    "command":  "mvnw.cmd -B clean verify -Dm15.evidence.directory=\u003craw directory\u003e",
+    "finished_at":  "2026-10-12T07:28:04.4695694Z",
+    "maven_exit_code":  0,
+    "git_after":  {
+                      "commit":  "8204fb1e211f83f048eccf129c4a41c8065db94a",
+                      "branch":  "test/m15-category-cache-evidence",
+                      "status":  [
+                                     " M backend/src/test/java/com/ccnlthd/course_management/CourseCacheIntegrationTests.java",
+                                     "?? backend/src/test/java/com/ccnlthd/course_management/M15CategoryCacheEvidenceTests.java",
+                                     "?? backend/src/test/java/com/ccnlthd/course_management/support/",
+                                     "?? docs/m15/"
+                                 ]
+                  },
+    "source_changed_during_run":  false,
+    "test_count":  76,
+    "skipped_test_count":  0,
+    "scenario_files":  [
+                           "miss-hit",
+                           "course-update-delete",
+                           "category-rename-two-courses",
+                           "category-rollback",
+                           "category-delete-conflict",
+                           "ttl-5s"
+                       ]
+}

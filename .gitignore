@@ -5,6 +5,9 @@
 # Maven
 **/target/
 
+# Local M15 runs; keep selected report evidence under docs/m15/results
+/.m15-results/
+
 # Environment
 .env
 *.env

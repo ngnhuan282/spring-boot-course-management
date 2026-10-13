@@ -1,0 +1,81 @@
+{
+  "scenario" : "ttl-5s",
+  "captured_at" : "2026-10-12T07:27:57.614101600Z",
+  "environment" : "H2 MySQL mode; real Redis Testcontainers; real services; MockMvc for HTTP steps",
+  "cache_name" : "courseDetails",
+  "key_format" : "courseDetails::<courseId>",
+  "dto" : "CourseResponse with categoryId and categoryName",
+  "value_serializer" : "JacksonJsonRedisSerializer<CourseResponse>",
+  "configured_ttl_seconds" : 5,
+  "query_definition" : "SELECTs touching courses/categories; a JOIN may count in both. DB snapshots excluded.",
+  "steps" : [ {
+    "at" : "2026-10-12T07:27:52.864892400Z",
+    "stage" : "ttl-before-wait",
+    "wait_method" : "Thread.sleep(100) polling; timeout 10s; no DEL or EXPIRE",
+    "sql" : {
+      "selectStatements" : 2,
+      "courseSelects" : 1,
+      "categorySelects" : 1,
+      "statements" : [ "select c1_0.id,c1_0.category_id,c1_0.created_at,c1_0.description,c1_0.level,c1_0.price,c1_0.status,c1_0.title,c1_0.updated_at from courses c1_0 where c1_0.id=?", "select c1_0.id,c1_0.created_at,c1_0.description,c1_0.name,c1_0.updated_at from categories c1_0 where c1_0.id=?" ]
+    },
+    "redis" : [ {
+      "key" : "courseDetails::7",
+      "exists" : true,
+      "ttl_ms" : 4961,
+      "json" : {
+        "id" : 7,
+        "categoryId" : 6,
+        "categoryName" : "Cache category 4ff32dd5-c9d1-45ca-9dd3-c4508d076a96",
+        "title" : "Original course",
+        "description" : "Redis cache integration test",
+        "price" : 149.9,
+        "level" : "BEGINNER",
+        "status" : "DRAFT"
+      }
+    } ]
+  }, {
+    "poll_sleep_ms" : 100,
+    "stage" : "ttl-expired-before-reload",
+    "redis" : [ {
+      "key" : "courseDetails::7",
+      "exists" : false,
+      "ttl_ms" : -2,
+      "json" : null
+    } ],
+    "at" : "2026-10-12T07:27:57.559977700Z"
+  }, {
+    "at" : "2026-10-12T07:27:57.607670500Z",
+    "stage" : "ttl-reloaded",
+    "response" : {
+      "id" : 7,
+      "categoryId" : 6,
+      "categoryName" : "Cache category 4ff32dd5-c9d1-45ca-9dd3-c4508d076a96",
+      "title" : "Original course",
+      "description" : "Redis cache integration test",
+      "price" : 149.90,
+      "level" : "BEGINNER",
+      "status" : "DRAFT"
+    },
+    "sql" : {
+      "selectStatements" : 2,
+      "courseSelects" : 1,
+      "categorySelects" : 1,
+      "statements" : [ "select c1_0.id,c1_0.category_id,c1_0.created_at,c1_0.description,c1_0.level,c1_0.price,c1_0.status,c1_0.title,c1_0.updated_at from courses c1_0 where c1_0.id=?", "select c1_0.id,c1_0.created_at,c1_0.description,c1_0.name,c1_0.updated_at from categories c1_0 where c1_0.id=?" ]
+    },
+    "redis" : [ {
+      "key" : "courseDetails::7",
+      "exists" : true,
+      "ttl_ms" : 4950,
+      "json" : {
+        "id" : 7,
+        "categoryId" : 6,
+        "categoryName" : "Cache category 4ff32dd5-c9d1-45ca-9dd3-c4508d076a96",
+        "title" : "Original course",
+        "description" : "Redis cache integration test",
+        "price" : 149.9,
+        "level" : "BEGINNER",
+        "status" : "DRAFT"
+      }
+    } ]
+  } ]
+}

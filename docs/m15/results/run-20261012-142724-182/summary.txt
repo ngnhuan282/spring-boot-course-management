@@ -1,0 +1,59 @@
+﻿M15 PASSED: 76 tests; 0 skipped.
+FUNCTIONAL EVIDENCE: H2 MySQL mode + real Redis + MockMvc; not a client latency benchmark.
+TTL: default 600s; separate actual expiry test configured to 5s.
+
+scenario                    stage                             http_status course_selects category_selects select_statements
+--------                    -----                             ----------- -------------- ---------------- -----------------
+miss-hit                    miss                                      200              1                1                 2
+miss-hit                    hit                                       200              0                0                 0
+course-update-delete        prime-4                                   200              1                1                 2
+course-update-delete        prime-5                                   200              1                1                 2
+course-update-delete        course-update-after-commit                200              1                1                 2
+course-update-delete        course-update-reload                      200              1                1                 2
+course-update-delete        course-delete-after-commit                204              1                0                 2
+course-update-delete        course-delete-get-404                     404              1                0                 1
+category-rename-two-courses prime-6                                   200              1                1                 2
+category-rename-two-courses prime-7                                   200              1                1                 2
+category-rename-two-courses category-rename-before-commit             200              0                2                 2
+category-rename-two-courses category-rename-after-commit                               0                0                 0
+category-rename-two-courses category-rename-reload-6                  200              1                1                 2
+category-rename-two-courses category-rename-reload-7                  200              1                1                 2
+category-rollback           prime-8                                   200              1                1                 2
+category-rollback           prime-9                                   200              1                1                 2
+category-rollback           category-rollback-before-rollback                          0                2                 2
+category-rollback           category-rollback-after-rollback                           0                0                 0
+category-rollback           category-rollback-hit-8                   200              0                0                 0
+category-rollback           category-rollback-hit-9                   200              0                0                 0
+category-delete-conflict    prime-10                                  200              1                1                 2
+category-delete-conflict    prime-11                                  200              1                1                 2
+category-delete-conflict    category-delete-conflict                  409              1                1                 2
+ttl-5s                      ttl-before-wait                                            1                1                 2
+ttl-5s                      ttl-expired-before-reload                                                                      
+ttl-5s                      ttl-reloaded                                               1                1                 2
+
+
+
+
+scenario                    stage                         key              exists ttl_ms category_name                                      
+--------                    -----                         ---              ------ ------ -------------                                      
+category-rename-two-courses prime-6                       courseDetails::6   True 599997 M15 category f377dacd-5ed2-4578-a25d-64ec0deaab14  
+category-rename-two-courses prime-6                       courseDetails::7  False     -2                                                    
+category-rename-two-courses prime-7                       courseDetails::6   True 599976 M15 category f377dacd-5ed2-4578-a25d-64ec0deaab14  
+category-rename-two-courses prime-7                       courseDetails::7   True 599994 M15 category f377dacd-5ed2-4578-a25d-64ec0deaab14  
+category-rename-two-courses category-rename-before-commit courseDetails::6   True 599943 M15 category f377dacd-5ed2-4578-a25d-64ec0deaab14  
+category-rename-two-courses category-rename-before-commit courseDetails::7   True 599959 M15 category f377dacd-5ed2-4578-a25d-64ec0deaab14  
+category-rename-two-courses category-rename-after-commit  courseDetails::6  False     -2                                                    
+category-rename-two-courses category-rename-after-commit  courseDetails::7  False     -2                                                    
+category-rename-two-courses category-rename-reload-6      courseDetails::6   True 599998 M15 renamed fd9c12c4-e46b-42f8-bd5b-a53fb63f57de   
+category-rename-two-courses category-rename-reload-6      courseDetails::7  False     -2                                                    
+category-rename-two-courses category-rename-reload-7      courseDetails::6   True 599979 M15 renamed fd9c12c4-e46b-42f8-bd5b-a53fb63f57de   
+category-rename-two-courses category-rename-reload-7      courseDetails::7   True 599996 M15 renamed fd9c12c4-e46b-42f8-bd5b-a53fb63f57de   
+ttl-5s                      ttl-before-wait               courseDetails::7   True   4961 Cache category 4ff32dd5-c9d1-45ca-9dd3-c4508d076a96
+ttl-5s                      ttl-expired-before-reload     courseDetails::7  False     -2                                                    
+ttl-5s                      ttl-reloaded                  courseDetails::7   True   4950 Cache category 4ff32dd5-c9d1-45ca-9dd3-c4508d076a96
+
+
+
+Source commit: 8204fb1e211f83f048eccf129c4a41c8065db94a
+Source SHA256 and working tree state: D:\ccclthd\spring-boot-course-management\docs\m15\results\run-20261012-142724-182
+HEAD identifies the base; source snapshots identify any uncommitted implementation.

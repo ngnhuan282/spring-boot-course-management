@@ -1,0 +1,50 @@
+﻿"scenario","stage","at","key","exists","ttl_ms","category_id","category_name","title"
+"miss-hit","miss","2026-10-12T07:28:01.715511600Z","courseDetails::12","True","599998","7","M15 category 4a4fb67b-165c-49c3-8bdd-b79962fa631a","M15 Course A"
+"miss-hit","miss","2026-10-12T07:28:01.715511600Z","courseDetails::13","False","-2",,,
+"miss-hit","hit","2026-10-12T07:28:01.735097600Z","courseDetails::12","True","599977","7","M15 category 4a4fb67b-165c-49c3-8bdd-b79962fa631a","M15 Course A"
+"miss-hit","hit","2026-10-12T07:28:01.735097600Z","courseDetails::13","False","-2",,,
+"course-update-delete","prime-4","2026-10-12T07:28:01.225941700Z","courseDetails::4","True","599992","3","M15 category 290277b0-21a8-4f42-b76e-991c04dd7dc6","M15 Course A"
+"course-update-delete","prime-4","2026-10-12T07:28:01.225941700Z","courseDetails::5","False","-2",,,
+"course-update-delete","prime-5","2026-10-12T07:28:01.246070600Z","courseDetails::4","True","599971","3","M15 category 290277b0-21a8-4f42-b76e-991c04dd7dc6","M15 Course A"
+"course-update-delete","prime-5","2026-10-12T07:28:01.246070600Z","courseDetails::5","True","599995","3","M15 category 290277b0-21a8-4f42-b76e-991c04dd7dc6","M15 Course B"
+"course-update-delete","course-update-after-commit","2026-10-12T07:28:01.273220400Z","courseDetails::4","False","-2",,,
+"course-update-delete","course-update-after-commit","2026-10-12T07:28:01.273220400Z","courseDetails::5","True","599966","3","M15 category 290277b0-21a8-4f42-b76e-991c04dd7dc6","M15 Course B"
+"course-update-delete","course-update-reload","2026-10-12T07:28:01.291164200Z","courseDetails::4","True","599998","3","M15 category 290277b0-21a8-4f42-b76e-991c04dd7dc6","M15 Updated Course"
+"course-update-delete","course-update-reload","2026-10-12T07:28:01.291164200Z","courseDetails::5","True","599946","3","M15 category 290277b0-21a8-4f42-b76e-991c04dd7dc6","M15 Course B"
+"course-update-delete","course-delete-after-commit","2026-10-12T07:28:01.310396400Z","courseDetails::4","False","-2",,,
+"course-update-delete","course-delete-after-commit","2026-10-12T07:28:01.310396400Z","courseDetails::5","True","599926","3","M15 category 290277b0-21a8-4f42-b76e-991c04dd7dc6","M15 Course B"
+"course-update-delete","course-delete-get-404","2026-10-12T07:28:01.341549300Z","courseDetails::4","False","-2",,,
+"course-update-delete","course-delete-get-404","2026-10-12T07:28:01.341549300Z","courseDetails::5","True","599892","3","M15 category 290277b0-21a8-4f42-b76e-991c04dd7dc6","M15 Course B"
+"category-rename-two-courses","prime-6","2026-10-12T07:28:01.383337Z","courseDetails::6","True","599997","4","M15 category f377dacd-5ed2-4578-a25d-64ec0deaab14","M15 Course A"
+"category-rename-two-courses","prime-6","2026-10-12T07:28:01.383337Z","courseDetails::7","False","-2",,,
+"category-rename-two-courses","prime-7","2026-10-12T07:28:01.402456800Z","courseDetails::6","True","599976","4","M15 category f377dacd-5ed2-4578-a25d-64ec0deaab14","M15 Course A"
+"category-rename-two-courses","prime-7","2026-10-12T07:28:01.402456800Z","courseDetails::7","True","599994","4","M15 category f377dacd-5ed2-4578-a25d-64ec0deaab14","M15 Course B"
+"category-rename-two-courses","category-rename-before-commit","2026-10-12T07:28:01.433479100Z","courseDetails::6","True","599943","4","M15 category f377dacd-5ed2-4578-a25d-64ec0deaab14","M15 Course A"
+"category-rename-two-courses","category-rename-before-commit","2026-10-12T07:28:01.433479100Z","courseDetails::7","True","599959","4","M15 category f377dacd-5ed2-4578-a25d-64ec0deaab14","M15 Course B"
+"category-rename-two-courses","category-rename-after-commit","2026-10-12T07:28:01.448834300Z","courseDetails::6","False","-2",,,
+"category-rename-two-courses","category-rename-after-commit","2026-10-12T07:28:01.448834300Z","courseDetails::7","False","-2",,,
+"category-rename-two-courses","category-rename-reload-6","2026-10-12T07:28:01.466052600Z","courseDetails::6","True","599998","4","M15 renamed fd9c12c4-e46b-42f8-bd5b-a53fb63f57de","M15 Course A"
+"category-rename-two-courses","category-rename-reload-6","2026-10-12T07:28:01.466052600Z","courseDetails::7","False","-2",,,
+"category-rename-two-courses","category-rename-reload-7","2026-10-12T07:28:01.484691200Z","courseDetails::6","True","599979","4","M15 renamed fd9c12c4-e46b-42f8-bd5b-a53fb63f57de","M15 Course A"
+"category-rename-two-courses","category-rename-reload-7","2026-10-12T07:28:01.484691200Z","courseDetails::7","True","599996","4","M15 renamed fd9c12c4-e46b-42f8-bd5b-a53fb63f57de","M15 Course B"
+"category-rollback","prime-8","2026-10-12T07:28:01.514070600Z","courseDetails::8","True","599998","5","M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531","M15 Course A"
+"category-rollback","prime-8","2026-10-12T07:28:01.514070600Z","courseDetails::9","False","-2",,,
+"category-rollback","prime-9","2026-10-12T07:28:01.529599100Z","courseDetails::8","True","599981","5","M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531","M15 Course A"
+"category-rollback","prime-9","2026-10-12T07:28:01.529599100Z","courseDetails::9","True","599995","5","M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531","M15 Course B"
+"category-rollback","category-rollback-before-rollback","2026-10-12T07:28:01.551478500Z","courseDetails::8","True","599957","5","M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531","M15 Course A"
+"category-rollback","category-rollback-before-rollback","2026-10-12T07:28:01.551478500Z","courseDetails::9","True","599971","5","M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531","M15 Course B"
+"category-rollback","category-rollback-after-rollback","2026-10-12T07:28:01.561573600Z","courseDetails::8","True","599946","5","M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531","M15 Course A"
+"category-rollback","category-rollback-after-rollback","2026-10-12T07:28:01.561573600Z","courseDetails::9","True","599959","5","M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531","M15 Course B"
+"category-rollback","category-rollback-hit-8","2026-10-12T07:28:01.581789300Z","courseDetails::8","True","599924","5","M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531","M15 Course A"
+"category-rollback","category-rollback-hit-8","2026-10-12T07:28:01.581789300Z","courseDetails::9","True","599938","5","M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531","M15 Course B"
+"category-rollback","category-rollback-hit-9","2026-10-12T07:28:01.596640400Z","courseDetails::8","True","599908","5","M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531","M15 Course A"
+"category-rollback","category-rollback-hit-9","2026-10-12T07:28:01.596640400Z","courseDetails::9","True","599922","5","M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531","M15 Course B"
+"category-delete-conflict","prime-10","2026-10-12T07:28:01.631776900Z","courseDetails::10","True","599998","6","M15 category 1427edda-3c91-4d0b-a116-46fb5292c3e9","M15 Course A"
+"category-delete-conflict","prime-10","2026-10-12T07:28:01.631776900Z","courseDetails::11","False","-2",,,
+"category-delete-conflict","prime-11","2026-10-12T07:28:01.649222800Z","courseDetails::10","True","599979","6","M15 category 1427edda-3c91-4d0b-a116-46fb5292c3e9","M15 Course A"
+"category-delete-conflict","prime-11","2026-10-12T07:28:01.649222800Z","courseDetails::11","True","599995","6","M15 category 1427edda-3c91-4d0b-a116-46fb5292c3e9","M15 Course B"
+"category-delete-conflict","category-delete-conflict","2026-10-12T07:28:01.671797900Z","courseDetails::10","True","599955","6","M15 category 1427edda-3c91-4d0b-a116-46fb5292c3e9","M15 Course A"
+"category-delete-conflict","category-delete-conflict","2026-10-12T07:28:01.671797900Z","courseDetails::11","True","599969","6","M15 category 1427edda-3c91-4d0b-a116-46fb5292c3e9","M15 Course B"
+"ttl-5s","ttl-before-wait","2026-10-12T07:27:52.864892400Z","courseDetails::7","True","4961","6","Cache category 4ff32dd5-c9d1-45ca-9dd3-c4508d076a96","Original course"
+"ttl-5s","ttl-expired-before-reload","2026-10-12T07:27:57.559977700Z","courseDetails::7","False","-2",,,
+"ttl-5s","ttl-reloaded","2026-10-12T07:27:57.607670500Z","courseDetails::7","True","4950","6","Cache category 4ff32dd5-c9d1-45ca-9dd3-c4508d076a96","Original course"
