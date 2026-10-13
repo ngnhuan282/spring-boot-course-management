@@ -1,0 +1,375 @@
+{
+  "scenario" : "category-rollback",
+  "captured_at" : "2026-10-12T07:28:01.608216800Z",
+  "environment" : "H2 MySQL mode; real Redis Testcontainers; real services; MockMvc for HTTP steps",
+  "cache_name" : "courseDetails",
+  "key_format" : "courseDetails::<courseId>",
+  "dto" : "CourseResponse with categoryId and categoryName",
+  "value_serializer" : "JacksonJsonRedisSerializer<CourseResponse>",
+  "configured_ttl_seconds" : 600,
+  "query_definition" : "SELECTs touching courses/categories; a JOIN may count in both. DB snapshots excluded.",
+  "steps" : [ {
+    "stage" : "prime-8",
+    "at" : "2026-10-12T07:28:01.514070600Z",
+    "http_status" : 200,
+    "response" : {
+      "id" : 8,
+      "categoryId" : 5,
+      "categoryName" : "M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531",
+      "title" : "M15 Course A",
+      "description" : "M15 isolated integration evidence",
+      "price" : 149.9,
+      "level" : "BEGINNER",
+      "status" : "DRAFT"
+    },
+    "sql" : {
+      "selectStatements" : 2,
+      "courseSelects" : 1,
+      "categorySelects" : 1,
+      "statements" : [ "select c1_0.id,c1_0.category_id,c1_0.created_at,c1_0.description,c1_0.level,c1_0.price,c1_0.status,c1_0.title,c1_0.updated_at from courses c1_0 where c1_0.id=?", "select c1_0.id,c1_0.created_at,c1_0.description,c1_0.name,c1_0.updated_at from categories c1_0 where c1_0.id=?" ]
+    },
+    "redis" : [ {
+      "key" : "courseDetails::8",
+      "exists" : true,
+      "ttl_ms" : 599998,
+      "json" : {
+        "id" : 8,
+        "categoryId" : 5,
+        "categoryName" : "M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531",
+        "title" : "M15 Course A",
+        "description" : "M15 isolated integration evidence",
+        "price" : 149.9,
+        "level" : "BEGINNER",
+        "status" : "DRAFT"
+      }
+    }, {
+      "key" : "courseDetails::9",
+      "exists" : false,
+      "ttl_ms" : -2,
+      "json" : null
+    } ],
+    "db_view_scope" : "committed database",
+    "database" : {
+      "category" : {
+        "name" : "M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531",
+        "id" : 5
+      },
+      "courses" : [ {
+        "id" : 8,
+        "title" : "M15 Course A",
+        "categoryId" : 5
+      }, {
+        "id" : 9,
+        "title" : "M15 Course B",
+        "categoryId" : 5
+      } ]
+    }
+  }, {
+    "stage" : "prime-9",
+    "at" : "2026-10-12T07:28:01.529599100Z",
+    "http_status" : 200,
+    "response" : {
+      "id" : 9,
+      "categoryId" : 5,
+      "categoryName" : "M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531",
+      "title" : "M15 Course B",
+      "description" : "M15 isolated integration evidence",
+      "price" : 149.9,
+      "level" : "BEGINNER",
+      "status" : "DRAFT"
+    },
+    "sql" : {
+      "selectStatements" : 2,
+      "courseSelects" : 1,
+      "categorySelects" : 1,
+      "statements" : [ "select c1_0.id,c1_0.category_id,c1_0.created_at,c1_0.description,c1_0.level,c1_0.price,c1_0.status,c1_0.title,c1_0.updated_at from courses c1_0 where c1_0.id=?", "select c1_0.id,c1_0.created_at,c1_0.description,c1_0.name,c1_0.updated_at from categories c1_0 where c1_0.id=?" ]
+    },
+    "redis" : [ {
+      "key" : "courseDetails::8",
+      "exists" : true,
+      "ttl_ms" : 599981,
+      "json" : {
+        "id" : 8,
+        "categoryId" : 5,
+        "categoryName" : "M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531",
+        "title" : "M15 Course A",
+        "description" : "M15 isolated integration evidence",
+        "price" : 149.9,
+        "level" : "BEGINNER",
+        "status" : "DRAFT"
+      }
+    }, {
+      "key" : "courseDetails::9",
+      "exists" : true,
+      "ttl_ms" : 599995,
+      "json" : {
+        "id" : 9,
+        "categoryId" : 5,
+        "categoryName" : "M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531",
+        "title" : "M15 Course B",
+        "description" : "M15 isolated integration evidence",
+        "price" : 149.9,
+        "level" : "BEGINNER",
+        "status" : "DRAFT"
+      }
+    } ],
+    "db_view_scope" : "committed database",
+    "database" : {
+      "category" : {
+        "name" : "M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531",
+        "id" : 5
+      },
+      "courses" : [ {
+        "id" : 8,
+        "title" : "M15 Course A",
+        "categoryId" : 5
+      }, {
+        "id" : 9,
+        "title" : "M15 Course B",
+        "categoryId" : 5
+      } ]
+    }
+  }, {
+    "stage" : "category-rollback-before-rollback",
+    "at" : "2026-10-12T07:28:01.551478500Z",
+    "http_status" : null,
+    "response" : null,
+    "sql" : {
+      "selectStatements" : 2,
+      "courseSelects" : 0,
+      "categorySelects" : 2,
+      "statements" : [ "select c1_0.id,c1_0.created_at,c1_0.description,c1_0.name,c1_0.updated_at from categories c1_0 where c1_0.id=?", "select c1_0.id from categories c1_0 where upper(c1_0.name)=upper(?) and c1_0.id<>? fetch first ? rows only", "update categories set description=?,name=?,updated_at=? where id=?" ]
+    },
+    "redis" : [ {
+      "key" : "courseDetails::8",
+      "exists" : true,
+      "ttl_ms" : 599957,
+      "json" : {
+        "id" : 8,
+        "categoryId" : 5,
+        "categoryName" : "M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531",
+        "title" : "M15 Course A",
+        "description" : "M15 isolated integration evidence",
+        "price" : 149.9,
+        "level" : "BEGINNER",
+        "status" : "DRAFT"
+      }
+    }, {
+      "key" : "courseDetails::9",
+      "exists" : true,
+      "ttl_ms" : 599971,
+      "json" : {
+        "id" : 9,
+        "categoryId" : 5,
+        "categoryName" : "M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531",
+        "title" : "M15 Course B",
+        "description" : "M15 isolated integration evidence",
+        "price" : 149.9,
+        "level" : "BEGINNER",
+        "status" : "DRAFT"
+      }
+    } ],
+    "db_view_scope" : "inside outer transaction; uncommitted",
+    "database" : {
+      "category" : {
+        "name" : "M15 rollback 260a7716-3e2f-424a-a6c5-97d491c14adb",
+        "id" : 5
+      },
+      "courses" : [ {
+        "id" : 8,
+        "title" : "M15 Course A",
+        "categoryId" : 5
+      }, {
+        "id" : 9,
+        "title" : "M15 Course B",
+        "categoryId" : 5
+      } ]
+    }
+  }, {
+    "stage" : "category-rollback-after-rollback",
+    "at" : "2026-10-12T07:28:01.561573600Z",
+    "http_status" : null,
+    "response" : null,
+    "sql" : {
+      "selectStatements" : 0,
+      "courseSelects" : 0,
+      "categorySelects" : 0,
+      "statements" : [ ]
+    },
+    "redis" : [ {
+      "key" : "courseDetails::8",
+      "exists" : true,
+      "ttl_ms" : 599946,
+      "json" : {
+        "id" : 8,
+        "categoryId" : 5,
+        "categoryName" : "M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531",
+        "title" : "M15 Course A",
+        "description" : "M15 isolated integration evidence",
+        "price" : 149.9,
+        "level" : "BEGINNER",
+        "status" : "DRAFT"
+      }
+    }, {
+      "key" : "courseDetails::9",
+      "exists" : true,
+      "ttl_ms" : 599959,
+      "json" : {
+        "id" : 9,
+        "categoryId" : 5,
+        "categoryName" : "M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531",
+        "title" : "M15 Course B",
+        "description" : "M15 isolated integration evidence",
+        "price" : 149.9,
+        "level" : "BEGINNER",
+        "status" : "DRAFT"
+      }
+    } ],
+    "db_view_scope" : "committed database",
+    "database" : {
+      "category" : {
+        "name" : "M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531",
+        "id" : 5
+      },
+      "courses" : [ {
+        "id" : 8,
+        "title" : "M15 Course A",
+        "categoryId" : 5
+      }, {
+        "id" : 9,
+        "title" : "M15 Course B",
+        "categoryId" : 5
+      } ]
+    }
+  }, {
+    "stage" : "category-rollback-hit-8",
+    "at" : "2026-10-12T07:28:01.581789300Z",
+    "http_status" : 200,
+    "response" : {
+      "id" : 8,
+      "categoryId" : 5,
+      "categoryName" : "M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531",
+      "title" : "M15 Course A",
+      "description" : "M15 isolated integration evidence",
+      "price" : 149.9,
+      "level" : "BEGINNER",
+      "status" : "DRAFT"
+    },
+    "sql" : {
+      "selectStatements" : 0,
+      "courseSelects" : 0,
+      "categorySelects" : 0,
+      "statements" : [ ]
+    },
+    "redis" : [ {
+      "key" : "courseDetails::8",
+      "exists" : true,
+      "ttl_ms" : 599924,
+      "json" : {
+        "id" : 8,
+        "categoryId" : 5,
+        "categoryName" : "M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531",
+        "title" : "M15 Course A",
+        "description" : "M15 isolated integration evidence",
+        "price" : 149.9,
+        "level" : "BEGINNER",
+        "status" : "DRAFT"
+      }
+    }, {
+      "key" : "courseDetails::9",
+      "exists" : true,
+      "ttl_ms" : 599938,
+      "json" : {
+        "id" : 9,
+        "categoryId" : 5,
+        "categoryName" : "M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531",
+        "title" : "M15 Course B",
+        "description" : "M15 isolated integration evidence",
+        "price" : 149.9,
+        "level" : "BEGINNER",
+        "status" : "DRAFT"
+      }
+    } ],
+    "db_view_scope" : "committed database",
+    "database" : {
+      "category" : {
+        "name" : "M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531",
+        "id" : 5
+      },
+      "courses" : [ {
+        "id" : 8,
+        "title" : "M15 Course A",
+        "categoryId" : 5
+      }, {
+        "id" : 9,
+        "title" : "M15 Course B",
+        "categoryId" : 5
+      } ]
+    }
+  }, {
+    "stage" : "category-rollback-hit-9",
+    "at" : "2026-10-12T07:28:01.596640400Z",
+    "http_status" : 200,
+    "response" : {
+      "id" : 9,
+      "categoryId" : 5,
+      "categoryName" : "M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531",
+      "title" : "M15 Course B",
+      "description" : "M15 isolated integration evidence",
+      "price" : 149.9,
+      "level" : "BEGINNER",
+      "status" : "DRAFT"
+    },
+    "sql" : {
+      "selectStatements" : 0,
+      "courseSelects" : 0,
+      "categorySelects" : 0,
+      "statements" : [ ]
+    },
+    "redis" : [ {
+      "key" : "courseDetails::8",
+      "exists" : true,
+      "ttl_ms" : 599908,
+      "json" : {
+        "id" : 8,
+        "categoryId" : 5,
+        "categoryName" : "M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531",
+        "title" : "M15 Course A",
+        "description" : "M15 isolated integration evidence",
+        "price" : 149.9,
+        "level" : "BEGINNER",
+        "status" : "DRAFT"
+      }
+    }, {
+      "key" : "courseDetails::9",
+      "exists" : true,
+      "ttl_ms" : 599922,
+      "json" : {
+        "id" : 9,
+        "categoryId" : 5,
+        "categoryName" : "M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531",
+        "title" : "M15 Course B",
+        "description" : "M15 isolated integration evidence",
+        "price" : 149.9,
+        "level" : "BEGINNER",
+        "status" : "DRAFT"
+      }
+    } ],
+    "db_view_scope" : "committed database",
+    "database" : {
+      "category" : {
+        "name" : "M15 category 09e28f32-03fa-4d6b-b9a8-d9f4bb3a0531",
+        "id" : 5
+      },
+      "courses" : [ {
+        "id" : 8,
+        "title" : "M15 Course A",
+        "categoryId" : 5
+      }, {
+        "id" : 9,
+        "title" : "M15 Course B",
+        "categoryId" : 5
+      } ]
+    }
+  } ]
+}

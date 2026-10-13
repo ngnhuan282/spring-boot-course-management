@@ -7,6 +7,9 @@ import com.ccnlthd.course_management.exception.AppException;
 import com.ccnlthd.course_management.exception.ErrorCode;
 import com.ccnlthd.course_management.service.CategoryService;
 import com.ccnlthd.course_management.service.CourseService;
+import com.ccnlthd.course_management.support.M15Evidence;
+import com.ccnlthd.course_management.support.M15SqlTrace;
+import com.ccnlthd.course_management.support.M15SqlTraceConfiguration;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
@@ -15,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -24,7 +28,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import java.math.BigDecimal;
+import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -40,6 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
         "spring.jpa.properties.hibernate.generate_statistics=true"
 })
 @Testcontainers
+@Import(M15SqlTraceConfiguration.class)
 class CourseCacheIntegrationTests {
 
     @Container
@@ -61,6 +70,9 @@ class CourseCacheIntegrationTests {
 
     @Autowired
     private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private M15SqlTrace sqlTrace;
 
     private Long courseId;
     private Long categoryId;
@@ -108,23 +120,43 @@ class CourseCacheIntegrationTests {
     }
 
     @Test
-    void expiredEntryTriggersAnotherDatabaseRead() throws InterruptedException {
+    void expiredEntryTriggersAnotherDatabaseRead() throws InterruptedException, IOException {
+        sqlTrace.clear();
         courseService.getCourseById(courseId);
         awaitKey();
+        Long initialTtl = redisTemplate.getExpire(cacheKey(), TimeUnit.MILLISECONDS);
+        assertNotNull(initialTtl);
+        assertTrue(initialTtl > 0 && initialTtl <= 5_000);
+        Map<String, Object> before = Map.of("stage", "ttl-before-wait", "at", Instant.now().toString(),
+                "sql", sqlTrace.snapshot(), "wait_method", "Thread.sleep(100) polling; timeout 10s; no DEL or EXPIRE",
+                "redis", List.of(M15Evidence.redisState(redisTemplate, courseId)));
 
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         while (Boolean.TRUE.equals(redisTemplate.hasKey(cacheKey())) && System.nanoTime() < deadline) {
             Thread.sleep(100);
         }
         assertFalse(Boolean.TRUE.equals(redisTemplate.hasKey(cacheKey())), "Redis must expire the entry");
+        assertEquals(-2L, redisTemplate.getExpire(cacheKey(), TimeUnit.MILLISECONDS));
+        Map<String, Object> expired = Map.of("stage", "ttl-expired-before-reload", "at", Instant.now().toString(),
+                "poll_sleep_ms", 100, "redis", List.of(M15Evidence.redisState(redisTemplate, courseId)));
 
         Statistics statistics = statistics();
         statistics.clear();
+        sqlTrace.clear();
         CourseResponse refreshed = courseService.getCourseById(courseId);
         long sqlAfterExpiry = statistics.getPrepareStatementCount();
         assertTrue(sqlAfterExpiry > 0, "An expired entry must reload from the database");
         assertEquals("Original course", refreshed.getTitle());
         awaitKey();
+        assertTrue(sqlTrace.snapshot().courseSelects() > 0);
+        assertTrue(sqlTrace.snapshot().categorySelects() > 0);
+        Long reloadedTtl = redisTemplate.getExpire(cacheKey(), TimeUnit.MILLISECONDS);
+        assertNotNull(reloadedTtl);
+        assertTrue(reloadedTtl > 0 && reloadedTtl <= 5_000);
+        Map<String, Object> reloaded = Map.of("stage", "ttl-reloaded", "at", Instant.now().toString(),
+                "sql", sqlTrace.snapshot(), "response", M15Evidence.JSON.valueToTree(refreshed),
+                "redis", List.of(M15Evidence.redisState(redisTemplate, courseId)));
+        M15Evidence.write("ttl-5s", 5, List.of(before, expired, reloaded));
 
         System.out.printf("course cache expiry: key=%s, reloadSql=%d%n", cacheKey(), sqlAfterExpiry);
     }

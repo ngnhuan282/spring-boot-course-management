@@ -10,19 +10,14 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Component
 @RequiredArgsConstructor
 public class CourseDetailCacheInvalidator {
-
     private static final String CACHE_NAME = "courseDetails";
-
     private final CacheManager cacheManager;
-
     public void evictAfterCommit(Long courseId) {
         afterCommit(() -> cache().evictIfPresent(courseId));
     }
-
     public void clearAfterCommit() {
         afterCommit(() -> cache().invalidate());
     }
-
     private Cache cache() {
         Cache cache = cacheManager.getCache(CACHE_NAME);
         if (cache == null) {
@@ -30,7 +25,6 @@ public class CourseDetailCacheInvalidator {
         }
         return cache;
     }
-
     private void afterCommit(Runnable action) {
         if (TransactionSynchronizationManager.isSynchronizationActive()
                 && TransactionSynchronizationManager.isActualTransactionActive()) {
