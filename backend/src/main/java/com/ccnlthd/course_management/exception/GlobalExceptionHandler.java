@@ -12,6 +12,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -27,19 +31,24 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Void>> handleValidationException(
+    public ResponseEntity<ApiResponse<List<Map<String, String>>>> handleValidationException(
             MethodArgumentNotValidException exception
     ) {
-        String message = exception.getBindingResult()
+        List<Map<String, String>> errors = exception.getBindingResult()
                 .getFieldErrors()
                 .stream()
-                .findFirst()
-                .map(error -> error.getField() + ": " + error.getDefaultMessage())
-                .orElse(ErrorCode.VALIDATION_FAILED.getMessage());
+                .map(error -> Map.of(
+                        "field", error.getField(),
+                        "message", error.getDefaultMessage()))
+                .toList();
 
         return ResponseEntity
                 .status(ErrorCode.VALIDATION_FAILED.getHttpStatus())
-                .body(ApiResponse.error(ErrorCode.VALIDATION_FAILED.getCode(), message));
+                .body(new ApiResponse<>(
+                        ErrorCode.VALIDATION_FAILED.getCode(),
+                        ErrorCode.VALIDATION_FAILED.getMessage(),
+                        errors,
+                        LocalDateTime.now()));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
