@@ -6,6 +6,7 @@ import com.ccnlthd.course_management.service.CategoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -34,14 +35,19 @@ public class CategoryController {
     private final CategoryService categoryService;
 
     @PostMapping
-    @Operation(summary = "Tạo danh mục", description = "Tạo danh mục mới sau khi kiểm tra tên trùng.")
+    @Operation(summary = "Tạo danh mục", description = "Tạo danh mục mới; tên được bỏ khoảng trắng đầu/cuối và kiểm tra trùng không phân biệt hoa/thường.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Tạo thành công",
                     content = @Content(schema = @Schema(implementation = CategoryResponse.class))),
             @ApiResponse(responseCode = "400", description = "Dữ liệu danh mục không hợp lệ",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
-            @ApiResponse(responseCode = "409", description = "Tên danh mục đã tồn tại (CATEGORY_ALREADY_EXISTS)",
-                    content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Tên danh mục đã tồn tại: CATEGORY_ALREADY_EXISTS; giữ nguyên dữ liệu danh mục. "
+                    + "Vi phạm ràng buộc CSDL, kể cả khi ghi đồng thời: DATA_CONFLICT.",
+                    content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class),
+                            examples = {
+                                    @ExampleObject(name = "CATEGORY_ALREADY_EXISTS", value = "{\"code\":\"CATEGORY_ALREADY_EXISTS\",\"message\":\"Category name already exists\",\"result\":null,\"timestamp\":\"2026-10-15T10:00:00\"}"),
+                                    @ExampleObject(name = "DATA_CONFLICT", value = "{\"code\":\"DATA_CONFLICT\",\"message\":\"Data conflicts with an existing record\",\"result\":null,\"timestamp\":\"2026-10-15T10:00:00\"}")
+                            })),
             @ApiResponse(responseCode = "500", description = "Lỗi không mong đợi",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class)))
     })
@@ -79,7 +85,7 @@ public class CategoryController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Cập nhật danh mục", description = "Sửa danh mục và kiểm tra tên trùng với danh mục khác.")
+    @Operation(summary = "Cập nhật danh mục", description = "Sửa danh mục; tên được bỏ khoảng trắng đầu/cuối và kiểm tra trùng với danh mục khác không phân biệt hoa/thường. Được giữ tên hiện tại.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Cập nhật thành công",
                     content = @Content(schema = @Schema(implementation = CategoryResponse.class))),
@@ -87,8 +93,13 @@ public class CategoryController {
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
             @ApiResponse(responseCode = "404", description = "Không tìm thấy danh mục (CATEGORY_NOT_FOUND)",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
-            @ApiResponse(responseCode = "409", description = "Tên danh mục đã thuộc danh mục khác (CATEGORY_ALREADY_EXISTS)",
-                    content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Tên đã thuộc danh mục khác: CATEGORY_ALREADY_EXISTS; giữ nguyên dữ liệu danh mục. "
+                    + "Vi phạm ràng buộc CSDL, kể cả khi ghi đồng thời: DATA_CONFLICT.",
+                    content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class),
+                            examples = {
+                                    @ExampleObject(name = "CATEGORY_ALREADY_EXISTS", value = "{\"code\":\"CATEGORY_ALREADY_EXISTS\",\"message\":\"Category name already exists\",\"result\":null,\"timestamp\":\"2026-10-15T10:00:00\"}"),
+                                    @ExampleObject(name = "DATA_CONFLICT", value = "{\"code\":\"DATA_CONFLICT\",\"message\":\"Data conflicts with an existing record\",\"result\":null,\"timestamp\":\"2026-10-15T10:00:00\"}")
+                            })),
             @ApiResponse(responseCode = "500", description = "Lỗi không mong đợi",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class)))
     })
@@ -105,8 +116,13 @@ public class CategoryController {
             @ApiResponse(responseCode = "204", description = "Xóa thành công, không có nội dung trả về"),
             @ApiResponse(responseCode = "404", description = "Không tìm thấy danh mục (CATEGORY_NOT_FOUND)",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
-            @ApiResponse(responseCode = "409", description = "Danh mục đang có khóa học (CATEGORY_HAS_COURSES)",
-                    content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Danh mục có ít nhất một khóa học: CATEGORY_HAS_COURSES; giữ nguyên danh mục và các khóa học. "
+                    + "Vi phạm ràng buộc CSDL, kể cả khi ghi đồng thời: DATA_CONFLICT.",
+                    content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class),
+                            examples = {
+                                    @ExampleObject(name = "CATEGORY_HAS_COURSES", value = "{\"code\":\"CATEGORY_HAS_COURSES\",\"message\":\"Category has courses\",\"result\":null,\"timestamp\":\"2026-10-15T10:00:00\"}"),
+                                    @ExampleObject(name = "DATA_CONFLICT", value = "{\"code\":\"DATA_CONFLICT\",\"message\":\"Data conflicts with an existing record\",\"result\":null,\"timestamp\":\"2026-10-15T10:00:00\"}")
+                            })),
             @ApiResponse(responseCode = "500", description = "Lỗi không mong đợi",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class)))
     })

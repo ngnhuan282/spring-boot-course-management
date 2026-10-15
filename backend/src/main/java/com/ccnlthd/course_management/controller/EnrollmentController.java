@@ -6,6 +6,7 @@ import com.ccnlthd.course_management.service.EnrollmentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -34,7 +35,7 @@ public class EnrollmentController {
     private final EnrollmentService enrollmentService;
 
     @PostMapping
-    @Operation(summary = "Tạo lượt ghi danh", description = "Ghi danh học viên vào khóa học nếu chưa ghi danh trước đó.")
+    @Operation(summary = "Tạo lượt ghi danh", description = "Ghi danh học viên vào khóa học; mỗi cặp studentId/courseId chỉ có một lượt ghi danh, bất kể trạng thái.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Ghi danh thành công",
                     content = @Content(schema = @Schema(implementation = EnrollmentResponse.class))),
@@ -42,8 +43,13 @@ public class EnrollmentController {
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
             @ApiResponse(responseCode = "404", description = "Không tìm thấy học viên (STUDENT_NOT_FOUND) hoặc khóa học (COURSE_NOT_FOUND)",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
-            @ApiResponse(responseCode = "409", description = "Học viên đã ghi danh khóa học (ENROLLMENT_ALREADY_EXISTS)",
-                    content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Cặp học viên/khóa học đã có lượt ghi danh: ENROLLMENT_ALREADY_EXISTS; giữ nguyên dữ liệu ghi danh. "
+                    + "Vi phạm ràng buộc CSDL, kể cả khi ghi đồng thời: DATA_CONFLICT.",
+                    content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class),
+                            examples = {
+                                    @ExampleObject(name = "ENROLLMENT_ALREADY_EXISTS", value = "{\"code\":\"ENROLLMENT_ALREADY_EXISTS\",\"message\":\"Student already enrolled in this course\",\"result\":null,\"timestamp\":\"2026-10-15T10:00:00\"}"),
+                                    @ExampleObject(name = "DATA_CONFLICT", value = "{\"code\":\"DATA_CONFLICT\",\"message\":\"Data conflicts with an existing record\",\"result\":null,\"timestamp\":\"2026-10-15T10:00:00\"}")
+                            })),
             @ApiResponse(responseCode = "500", description = "Lỗi không mong đợi",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class)))
     })
@@ -82,7 +88,7 @@ public class EnrollmentController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Cập nhật ghi danh", description = "Sửa học viên, khóa học hoặc trạng thái của lượt ghi danh.")
+    @Operation(summary = "Cập nhật ghi danh", description = "Sửa học viên, khóa học hoặc trạng thái; cặp studentId/courseId phải chưa thuộc lượt ghi danh khác, bất kể trạng thái. Được giữ cặp hiện tại.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Cập nhật thành công",
                     content = @Content(schema = @Schema(implementation = EnrollmentResponse.class))),
@@ -90,8 +96,13 @@ public class EnrollmentController {
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
             @ApiResponse(responseCode = "404", description = "Không tìm thấy lượt ghi danh (ENROLLMENT_NOT_FOUND), học viên (STUDENT_NOT_FOUND) hoặc khóa học (COURSE_NOT_FOUND)",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
-            @ApiResponse(responseCode = "409", description = "Học viên đã ghi danh khóa học (ENROLLMENT_ALREADY_EXISTS)",
-                    content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Cặp học viên/khóa học đã thuộc lượt ghi danh khác: ENROLLMENT_ALREADY_EXISTS; giữ nguyên dữ liệu ghi danh. "
+                    + "Vi phạm ràng buộc CSDL, kể cả khi ghi đồng thời: DATA_CONFLICT.",
+                    content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class),
+                            examples = {
+                                    @ExampleObject(name = "ENROLLMENT_ALREADY_EXISTS", value = "{\"code\":\"ENROLLMENT_ALREADY_EXISTS\",\"message\":\"Student already enrolled in this course\",\"result\":null,\"timestamp\":\"2026-10-15T10:00:00\"}"),
+                                    @ExampleObject(name = "DATA_CONFLICT", value = "{\"code\":\"DATA_CONFLICT\",\"message\":\"Data conflicts with an existing record\",\"result\":null,\"timestamp\":\"2026-10-15T10:00:00\"}")
+                            })),
             @ApiResponse(responseCode = "500", description = "Lỗi không mong đợi",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class)))
     })

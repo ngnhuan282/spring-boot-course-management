@@ -1,4 +1,6 @@
 spring:
+  flyway:
+    enabled: false
   cache:
     type: none
   datasource:

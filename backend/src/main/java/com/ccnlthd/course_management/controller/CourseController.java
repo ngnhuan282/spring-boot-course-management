@@ -6,6 +6,7 @@ import com.ccnlthd.course_management.service.CourseService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -106,8 +107,13 @@ public class CourseController {
             @ApiResponse(responseCode = "204", description = "Xóa thành công, không có nội dung trả về"),
             @ApiResponse(responseCode = "404", description = "Không tìm thấy khóa học (COURSE_NOT_FOUND)",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
-            @ApiResponse(responseCode = "409", description = "Khóa học đã có lượt ghi danh (COURSE_HAS_ENROLLMENTS)",
-                    content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Khóa học có ít nhất một lượt ghi danh: COURSE_HAS_ENROLLMENTS; giữ nguyên khóa học và các lượt ghi danh. "
+                    + "Vi phạm ràng buộc CSDL, kể cả khi ghi đồng thời: DATA_CONFLICT.",
+                    content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class),
+                            examples = {
+                                    @ExampleObject(name = "COURSE_HAS_ENROLLMENTS", value = "{\"code\":\"COURSE_HAS_ENROLLMENTS\",\"message\":\"Course has enrollments\",\"result\":null,\"timestamp\":\"2026-10-15T10:00:00\"}"),
+                                    @ExampleObject(name = "DATA_CONFLICT", value = "{\"code\":\"DATA_CONFLICT\",\"message\":\"Data conflicts with an existing record\",\"result\":null,\"timestamp\":\"2026-10-15T10:00:00\"}")
+                            })),
             @ApiResponse(responseCode = "500", description = "Lỗi không mong đợi",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class)))
     })
