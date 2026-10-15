@@ -1,0 +1,6 @@
+@aspnet_core_demo_HostAddress = http://localhost:5028
+
+GET {{aspnet_core_demo_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
