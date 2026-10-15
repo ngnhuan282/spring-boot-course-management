@@ -6,6 +6,7 @@ import com.ccnlthd.course_management.service.StudentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -34,14 +35,19 @@ public class StudentController {
     private final StudentService studentService;
 
     @PostMapping
-    @Operation(summary = "Tạo học viên", description = "Tạo học viên mới sau khi kiểm tra email trùng.")
+    @Operation(summary = "Tạo học viên", description = "Tạo học viên mới; email được bỏ khoảng trắng đầu/cuối và kiểm tra trùng không phân biệt hoa/thường.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Tạo thành công",
                     content = @Content(schema = @Schema(implementation = StudentResponse.class))),
             @ApiResponse(responseCode = "400", description = "Dữ liệu học viên không hợp lệ",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
-            @ApiResponse(responseCode = "409", description = "Email đã tồn tại (STUDENT_EMAIL_ALREADY_EXISTS)",
-                    content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Email đã tồn tại: STUDENT_EMAIL_ALREADY_EXISTS; giữ nguyên dữ liệu học viên. "
+                    + "Vi phạm ràng buộc CSDL, kể cả khi ghi đồng thời: DATA_CONFLICT.",
+                    content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class),
+                            examples = {
+                                    @ExampleObject(name = "STUDENT_EMAIL_ALREADY_EXISTS", value = "{\"code\":\"STUDENT_EMAIL_ALREADY_EXISTS\",\"message\":\"Student email already exists\",\"result\":null,\"timestamp\":\"2026-10-15T10:00:00\"}"),
+                                    @ExampleObject(name = "DATA_CONFLICT", value = "{\"code\":\"DATA_CONFLICT\",\"message\":\"Data conflicts with an existing record\",\"result\":null,\"timestamp\":\"2026-10-15T10:00:00\"}")
+                            })),
             @ApiResponse(responseCode = "500", description = "Lỗi không mong đợi",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class)))
     })
@@ -77,7 +83,7 @@ public class StudentController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Cập nhật học viên", description = "Sửa thông tin học viên và kiểm tra email trùng với học viên khác.")
+    @Operation(summary = "Cập nhật học viên", description = "Sửa thông tin học viên; email được bỏ khoảng trắng đầu/cuối và kiểm tra trùng với học viên khác không phân biệt hoa/thường. Được giữ email hiện tại.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Cập nhật thành công",
                     content = @Content(schema = @Schema(implementation = StudentResponse.class))),
@@ -85,8 +91,13 @@ public class StudentController {
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
             @ApiResponse(responseCode = "404", description = "Không tìm thấy học viên (STUDENT_NOT_FOUND)",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
-            @ApiResponse(responseCode = "409", description = "Email đã thuộc học viên khác (STUDENT_EMAIL_ALREADY_EXISTS)",
-                    content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Email đã thuộc học viên khác: STUDENT_EMAIL_ALREADY_EXISTS; giữ nguyên dữ liệu học viên. "
+                    + "Vi phạm ràng buộc CSDL, kể cả khi ghi đồng thời: DATA_CONFLICT.",
+                    content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class),
+                            examples = {
+                                    @ExampleObject(name = "STUDENT_EMAIL_ALREADY_EXISTS", value = "{\"code\":\"STUDENT_EMAIL_ALREADY_EXISTS\",\"message\":\"Student email already exists\",\"result\":null,\"timestamp\":\"2026-10-15T10:00:00\"}"),
+                                    @ExampleObject(name = "DATA_CONFLICT", value = "{\"code\":\"DATA_CONFLICT\",\"message\":\"Data conflicts with an existing record\",\"result\":null,\"timestamp\":\"2026-10-15T10:00:00\"}")
+                            })),
             @ApiResponse(responseCode = "500", description = "Lỗi không mong đợi",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class)))
     })
@@ -103,8 +114,13 @@ public class StudentController {
             @ApiResponse(responseCode = "204", description = "Xóa thành công, không có nội dung trả về"),
             @ApiResponse(responseCode = "404", description = "Không tìm thấy học viên (STUDENT_NOT_FOUND)",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
-            @ApiResponse(responseCode = "409", description = "Học viên đã có lượt ghi danh (STUDENT_HAS_ENROLLMENTS)",
-                    content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Học viên có ít nhất một lượt ghi danh: STUDENT_HAS_ENROLLMENTS; giữ nguyên học viên và các lượt ghi danh. "
+                    + "Vi phạm ràng buộc CSDL, kể cả khi ghi đồng thời: DATA_CONFLICT.",
+                    content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class),
+                            examples = {
+                                    @ExampleObject(name = "STUDENT_HAS_ENROLLMENTS", value = "{\"code\":\"STUDENT_HAS_ENROLLMENTS\",\"message\":\"Student has enrollments\",\"result\":null,\"timestamp\":\"2026-10-15T10:00:00\"}"),
+                                    @ExampleObject(name = "DATA_CONFLICT", value = "{\"code\":\"DATA_CONFLICT\",\"message\":\"Data conflicts with an existing record\",\"result\":null,\"timestamp\":\"2026-10-15T10:00:00\"}")
+                            })),
             @ApiResponse(responseCode = "500", description = "Lỗi không mong đợi",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class)))
     })
