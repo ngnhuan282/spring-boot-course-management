@@ -1,0 +1,56 @@
+# Independent experiment; do not combine with the legacy docker-compose.yml.
+name: course-standalone
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: course_standalone
+      MYSQL_USER: standalone_user
+      MYSQL_PASSWORD: ${STANDALONE_DB_PASSWORD:-standalone_demo_password}
+      MYSQL_ROOT_PASSWORD: ${STANDALONE_ROOT_PASSWORD:-standalone_root_demo}
+    volumes:
+      - standalone_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", 'MYSQL_PWD="$${MYSQL_PASSWORD}" mysql -h127.0.0.1 -u"$${MYSQL_USER}" -D"$${MYSQL_DATABASE}" --execute="SELECT 1"']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+  redis:
+    image: redis:7.4-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  backend:
+    image: ${STANDALONE_IMAGE_REF:-course-standalone-backend:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VCS_REF: ${STANDALONE_SOURCE_REVISION:-unversioned}
+    ports:
+      - "127.0.0.1:${STANDALONE_HTTP_PORT:-8091}:8080"
+    environment:
+      SERVER_PORT: "8080"
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/course_standalone?allowPublicKeyRetrieval=true&useSSL=false
+      SPRING_DATASOURCE_USERNAME: standalone_user
+      SPRING_DATASOURCE_PASSWORD: ${STANDALONE_DB_PASSWORD:-standalone_demo_password}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+      APP_CACHE_COURSE_DETAIL_TTL: 10m
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_BASELINE_ON_MIGRATE: "false"
+      SPRING_FLYWAY_VALIDATE_ON_MIGRATE: "true"
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION: "false"
+      SPRING_SQL_INIT_MODE: never
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+volumes:
+  standalone_mysql_data:

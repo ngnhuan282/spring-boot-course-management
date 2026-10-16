@@ -1,432 +1,132 @@
-# Spring Boot Course Management
+# Spring Boot - Course standalone
 
-Đồ án môn **Các Công nghệ Lập trình Hiện đại** với đề tài:
+Nhánh `refactor/course-standalone` và nhánh chuẩn bị `docker-standalone` là bản
+thực nghiệm độc lập cho Chương 4-8 của báo cáo CCNLTHD. Nhóm sử dụng một thực
+thể Course để kiểm chứng Spring Boot, JPA, validation, cache, migration và quy
+trình đóng gói/phát hành. Kết quả của bản này không tự thay thế minh chứng hệ
+thống tích hợp ở Chương 12.
 
-> **Tìm hiểu và ứng dụng công nghệ Spring Boot**
+## Công nghệ
 
-Bài toán **quản lý khóa học trực tuyến** được sử dụng làm case study để minh họa và kiểm chứng các cơ chế của Spring Boot. Trọng tâm của đồ án là **làm chủ công nghệ**, không phải xây dựng một nền tảng E-Learning hoàn chỉnh.
+Java 21, Spring Boot 4.1.1, Maven Wrapper, Spring Data JPA, Flyway, MySQL 8.4,
+Spring Cache/Redis 7.4, JUnit và Testcontainers. Phạm vi nghiệp vụ chỉ có Course;
+request không có `categoryId`. Backend sử dụng Controller -> Service -> Repository,
+DTO và Global Exception Handler.
 
----
+## Khởi động bằng một lệnh
 
-## 1. Mục tiêu học tập
-
-### Tầng 1 — Bắt buộc lõi
-
-Nhóm tập trung làm rõ và thực hành các nội dung:
-
-- **IoC và Dependency Injection**
-- **REST Controller và Service Layer**
-- **Spring Data JPA**
-
-### Nội dung chọn thêm
-
-- **Bean Validation**
-- **Global Exception Handler**
-
-### Tầng 3 — Nâng cao
-
-- **Spring Cache**
-- **Redis**
-- Cache hit / cache miss
-- TTL
-- Cache invalidation
-- Đo thời gian phản hồi trước và sau khi áp dụng cache
-
----
-
-## 2. Công nghệ sử dụng
-
-### Backend
-
-- Java 21
-- Spring Boot 4.1.1
-- Maven
-- Spring Web
-- Bean Validation
-- Lombok
-- Springdoc OpenAPI / Swagger UI
-
-### Dự kiến bổ sung
-
-- Spring Data JPA
-- Database
-- Spring Cache
-- Redis
-- Testing
-- GitHub Actions
-- Docker / Docker Compose
-
----
-
-## 3. Cấu trúc repository
-
-```text
-spring-boot-course-management/
-├── backend/
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── java/
-│   │   │   │   └── com/ccnlthd/coursemanagement/
-│   │   │   │       ├── config/
-│   │   │   │       ├── controller/
-│   │   │   │       ├── dto/
-│   │   │   │       │   ├── request/
-│   │   │   │       │   └── response/
-│   │   │   │       ├── entity/
-│   │   │   │       ├── exception/
-│   │   │   │       ├── repository/
-│   │   │   │       ├── service/
-│   │   │   │       │   └── impl/
-│   │   │   │       └── CourseManagementApplication.java
-│   │   │   └── resources/
-│   │   │       └── application.yml
-│   │   └── test/
-│   ├── mvnw
-│   ├── mvnw.cmd
-│   └── pom.xml
-├── docs/
-├── .env.example
-├── .gitignore
-├── docker-compose.yml
-└── README.md
-```
-
-> Một số package có thể chưa xuất hiện trên GitHub khi còn rỗng vì Git không theo dõi thư mục rỗng.
-
----
-
-## 4. Kiến trúc backend dự kiến
-
-Luồng xử lý chính:
-
-```text
-Client
-  ↓
-Controller
-  ↓
-Service
-  ↓
-Repository
-  ↓
-Database
-```
-
-Nguyên tắc:
-
-- `Controller`: tiếp nhận HTTP request và trả HTTP response.
-- `Service`: chứa logic nghiệp vụ.
-- `Repository`: phụ trách truy cập dữ liệu.
-- `DTO`: tách dữ liệu request/response khỏi Entity.
-- `Exception`: xử lý lỗi tập trung.
-- `Config`: chứa cấu hình của ứng dụng.
-
-Business logic không được đặt trực tiếp trong Controller.
-
----
-
-## 5. Yêu cầu môi trường
-
-Cài đặt trước:
-
-- **Java 21**
-- **Git**
-- IDE hỗ trợ Java/Spring Boot, khuyến nghị IntelliJ IDEA
-
-Kiểm tra Java:
-
-```bash
-java -version
-```
-
-Kết quả cần sử dụng Java 21.
-
----
-
-## 6. Cách chạy project
-
-Clone repository:
-
-```bash
-git clone https://github.com/ngnhuan282/spring-boot-course-management.git
-```
-
-Nếu muốn chạy bản Course độc lập, chọn đúng nhánh sau khi tải mã:
+Mở Docker Desktop ở chế độ Linux containers; cần Compose v2.20 trở lên. Từ thư
+mục gốc repository:
 
 ```powershell
-cd spring-boot-course-management
-git switch refactor/course-standalone
+docker compose -f docker-compose.standalone.yml up --build -d --wait --wait-timeout 600
 ```
 
-Mở thư mục gốc bằng IntelliJ IDEA và nhập [pom.xml](pom.xml) ở thư mục gốc như một dự án Maven. Tệp này khai báo mô-đun `backend`; các thư viện Spring Cache và Spring Data Redis nằm trong [backend/pom.xml](backend/pom.xml). Chọn Java 21 cho dự án, rồi dùng **Reload All Maven Projects** sau mỗi lần chuyển nhánh hoặc kéo mã mới. Không chép riêng `CacheConfig.java` sang một nhánh khác mà thiếu `backend/pom.xml`.
+Lệnh trên build JAR bằng JDK 21 trong Docker, tạo image chạy JRE 21 bằng user
+`app`, rồi khởi động backend, MySQL và Redis. Backend chờ hai dịch vụ dữ liệu
+healthy. Không cần cài Java/Maven trên máy nếu chạy theo cách này.
 
-Trước khi chạy ứng dụng, kiểm tra mã từ thư mục gốc:
+- Swagger: <http://127.0.0.1:8091/swagger-ui/index.html>
+- Health: <http://127.0.0.1:8091/api/health>
+- Courses: <http://127.0.0.1:8091/api/courses>
 
 ```powershell
-.\backend\mvnw.cmd -B -f pom.xml compile
+docker compose -f docker-compose.standalone.yml ps
+docker compose -f docker-compose.standalone.yml logs --no-color backend
 ```
 
-Nếu lệnh trên báo `BUILD SUCCESS` nhưng trình soạn thảo vẫn tô đỏ `org.springframework.data.redis`, tải lại dự án Maven trong trình soạn thảo; đó là trạng thái thư viện của trình soạn thảo, không phải lỗi biên dịch Java. Nếu Maven báo lỗi, gửi dòng `[ERROR]` đầu tiên để xác định thiếu thư viện hay cấu hình.
-
-Từ thư mục gốc, chạy MySQL và Redis, rồi vào backend:
-
-```bash
-cd spring-boot-course-management
-docker compose up -d --wait
-cd backend
-```
-
-Redis mặc định ở `localhost:6379`; TTL cache Course detail là 10 phút. Có thể đổi bằng `SPRING_DATA_REDIS_HOST`, `SPRING_DATA_REDIS_PORT` và `APP_CACHE_COURSE_DETAIL_TTL`.
-
-Chỉ `GET /api/courses/{id}` dùng cache `standaloneCourseDetails`. Sau khi sửa hoặc xóa Course thành công, entry tương ứng được xóa sau commit. Từ thư mục gốc có thể xem JSON và TTL bằng:
-
-```bash
-docker compose exec redis redis-cli --scan --pattern 'standaloneCourseDetails::*'
-docker compose exec redis redis-cli GET 'standaloneCourseDetails::1'
-docker compose exec redis redis-cli TTL 'standaloneCourseDetails::1'
-```
-
-### Windows PowerShell / CMD
-
-```bash
-mvnw.cmd spring-boot:run
-```
-
-hoặc:
-
-```bash
-.\mvnw.cmd spring-boot:run
-```
-
-### macOS / Linux
-
-```bash
-./mvnw spring-boot:run
-```
-
-Khi chạy thành công, ứng dụng mặc định hoạt động tại:
-
-```text
-http://localhost:8080
-```
-
----
-
-## 7. Health Check
-
-Endpoint kiểm tra trạng thái backend:
-
-```http
-GET /api/health
-```
-
-URL:
-
-```text
-http://localhost:8080/api/health
-```
-
-Ví dụ response:
-
-```json
-{
-  "status": "UP",
-  "application": "Course Management API",
-  "timestamp": "2026-09-18T..."
-}
-```
-
----
-
-## 8. Swagger / OpenAPI
-
-Swagger UI:
-
-```text
-http://localhost:8080/swagger-ui/index.html
-```
-
-OpenAPI JSON:
-
-```text
-http://localhost:8080/v3/api-docs
-```
-
-Swagger được sử dụng để:
-
-- Theo dõi danh sách API
-- Kiểm tra request/response
-- Test endpoint trong quá trình phát triển
-- Làm tài liệu API cho đồ án
-
----
-
-## 9. Phạm vi case study
-
-Bài toán minh họa chỉ sử dụng thực thể `Course`, với API tạo, xem, cập nhật và xóa khóa học. Phạm vi nghiệp vụ được giữ ở mức vừa đủ để minh họa các nội dung Spring Boot đã đăng ký.
-
----
-
-## 10. Git Workflow
-
-Repository sử dụng mô hình:
-
-```text
-main
-└── develop
-    └── feature branches
-```
-
-Ví dụ:
-
-```text
-feat/week1-core-init
-feat/course-crud
-feat/bean-validation
-feat/global-exception-handler
-feat/redis-cache
-test/course-service
-docs/update-readme
-```
-
-Quy trình:
-
-```text
-develop
-   ↓
-feature branch
-   ↓
-commit
-   ↓
-push
-   ↓
-Pull Request
-   ↓
-Code Review
-   ↓
-merge vào develop
-```
-
-Không commit trực tiếp vào `main`.
-
-### Quy ước commit gợi ý
-
-```text
-feat: thêm chức năng mới
-fix: sửa lỗi
-docs: cập nhật tài liệu
-test: thêm hoặc sửa test
-refactor: tái cấu trúc code
-chore: công việc cấu hình / bảo trì
-```
-
-Ví dụ:
-
-```bash
-git commit -m "feat: add health check endpoint"
-git commit -m "docs: configure Swagger OpenAPI"
-```
-
----
-
-## 11. Tiến độ hiện tại
-
-### Tuần 1
-
-- [x] Khởi tạo Spring Boot project
-- [x] Thiết lập cấu trúc package cơ bản
-- [x] Tạo `/api/health`
-- [x] Cấu hình Swagger / OpenAPI
-- [x] Kiểm tra project chạy trên port `8080`
-- [ ] Hoàn thiện tài liệu và minh chứng Tuần 1
-
-### Các giai đoạn tiếp theo
-
-- [ ] Spring Data JPA và thiết kế Entity
-- [ ] CRUD cơ bản
-- [ ] Bean Validation
-- [ ] Global Exception Handler
-- [ ] Testing
-- [ ] Spring Cache + Redis
-- [ ] Đo và so sánh hiệu năng
-- [ ] Docker / Docker Compose
-- [ ] GitHub Actions
-- [ ] Hoàn thiện báo cáo và hands-on lab
-
----
-
-## 12. Lưu ý bảo mật
-
-Không commit các thông tin nhạy cảm như:
-
-- Password
-- API Key
-- Secret Key
-- Token
-- File `.env`
-
-Các biến môi trường mẫu được khai báo trong:
-
-```text
-.env.example
-```
-
----
-
-## 13. Thành viên
-
-Nhóm gồm **3 thành viên**.
-
-Phân công chi tiết được quản lý trong file kế hoạch tiến độ của nhóm. Mọi thành viên đều cần hiểu các nội dung công nghệ đã được khai báo vì phần thực hành tại chỗ có thể chọn ngẫu nhiên thành viên.
-
----
-
-## 14. Tài liệu tham khảo chính
-
-Ưu tiên sử dụng tài liệu chính thức:
-
-- Spring Boot Documentation
-- Spring Framework Documentation
-- Spring Data JPA Documentation
-- Springdoc OpenAPI Documentation
-- Redis Documentation
-
----
-
-## 15. Trạng thái dự án
-
-> **Đang phát triển**
-
-Phiên bản hiện tại tập trung vào việc hoàn thiện nền tảng Spring Boot và các nội dung học tập theo yêu cầu môn học trước khi mở rộng nghiệp vụ.
-
----
-
-## Chạy nhánh `refactor/course-standalone`
-
-Course dùng REST Controller, Service, Spring Data JPA, Bean Validation và Global Exception Handler. Request/response của Course chỉ gồm `title`, `description`, `price`, `level`, `status` (response có thêm `id`). Backend chỉ còn module Course; các file Category, Student và Enrollment đã được gỡ khỏi mã nguồn.
-
-Chuẩn bị MySQL 8.4 bằng `docker compose up -d mysql`. Nếu dùng database cũ, chạy migration **trước khi khởi động ứng dụng**:
-
-```powershell
-Get-Content backend/src/main/resources/migration/course-standalone-mysql.sql -Raw |
-  docker exec -i course-management-mysql mysql -u course_user -pcourse_password -D course_management
-```
-
-Migration bỏ khóa ngoại Category, cho phép `courses.category_id` nhận `NULL`, và bỏ khóa ngoại `enrollments.course_id`; giữ nguyên các cột, giá trị và mọi dòng dữ liệu cũ. Với database mới, Hibernate chỉ tạo bảng `courses` cho nghiệp vụ, nên không cần chạy migration. `ddl-auto: update` không tự bỏ bảng và ràng buộc cũ. Các bảng Category, Student, Enrollment có sẵn trong database cũ vẫn được giữ để tránh mất dữ liệu, nhưng ứng dụng không còn ánh xạ hoặc sử dụng chúng. Nếu xóa Course từng có Enrollment cũ, dòng Enrollment cũ có thể trỏ tới ID Course không còn tồn tại.
-
-Chạy build/test và ứng dụng từ thư mục `backend`:
-
-```powershell
-.\mvnw.cmd clean verify
-.\mvnw.cmd spring-boot:run
-```
-
-Ví dụ request tạo Course:
+MySQL/Redis không công bố cổng host. Named volume `course-standalone_standalone_mysql_data`
+được tách khỏi volume của các bài thực hành cũ. HTTP mặc định là 8091; đổi bằng
+`STANDALONE_HTTP_PORT` khi cần. Các mật khẩu mẫu chỉ phục vụ thực nghiệm local;
+biến có thể thay đổi được liệt kê trong `.env.example`.
+
+## Migration và dữ liệu mẫu
+
+Flyway được bật mặc định. V1 tạo đúng bảng nghiệp vụ `courses`; Flyway quản lý
+thêm `flyway_schema_history`. Profile local mặc định `dev` áp dụng V2 để nạp ba
+khóa học mẫu một lần. Hibernate dùng `ddl-auto=validate`, SQL initialization là
+`never`; `data.sql` cũ không được thực thi trong runtime này.
+
+Profile `prod` chỉ tìm migration schema, yêu cầu biến môi trường cho datasource
+và Redis. Đây là cấu hình để minh họa phân tách môi trường, chưa chứng minh một
+dịch vụ production đang được vận hành. Database đã áp dụng V2 phải tiếp tục có
+location chứa V2 khi kiểm tra checksum; không chuyển tùy tiện database demo
+sang profile schema-only.
+
+Không sửa migration đã áp dụng. Thay đổi tiếp theo dùng phiên bản migration mới.
+Database cũ do Hibernate hoặc mô hình bốn thực thể tạo cần kế hoạch chuyển đổi
+riêng nếu giữ dữ liệu. Cấu hình không tự baseline, repair hay xóa dữ liệu cũ.
+Script `migration/course-standalone-mysql.sql` được giữ cho lịch sử bài thực hành
+trước đây; không dùng nó để thay thế Flyway trên database mới này.
+
+## API và cache
 
 ```http
 POST /api/courses
 Content-Type: application/json
 
-{"title":"Spring Boot thực hành","description":"REST và JPA","price":499000,"level":"BEGINNER","status":"DRAFT"}
+{"title":"Spring Boot thực hành","description":"REST và JPA","price":499000,"level":"BEGINNER","status":"PUBLISHED"}
 ```
 
-API còn có `GET /api/courses`, `GET /api/courses/{id}`, `PUT /api/courses/{id}` (cùng JSON với POST), `DELETE /api/courses/{id}`. DELETE thành công trả `204`; ID không tồn tại trả `404` với code `COURSE_NOT_FOUND`. `title` rỗng hoặc `price` âm trả `400` với code `VALIDATION_FAILED`.
+API gồm GET danh sách, GET theo ID, POST, PUT và DELETE Course. POST trả 201,
+DELETE trả 204; dữ liệu không hợp lệ trả 400 với `VALIDATION_FAILED`, ID không
+tồn tại trả 404 với `COURSE_NOT_FOUND`.
+
+`GET /api/courses/{id}` dùng cache `standaloneCourseDetails`; TTL mặc định 10
+phút. Update/delete thành công làm mất hiệu lực cache sau commit.
+
+```powershell
+docker compose -f docker-compose.standalone.yml exec redis redis-cli --scan --pattern 'standaloneCourseDetails::*'
+docker compose -f docker-compose.standalone.yml exec redis redis-cli TTL 'standaloneCourseDetails::1'
+```
+
+## CI và CD của bản thực nghiệm
+
+Workflow `.github/workflows/standalone-backend.yml` chạy trên push vào
+`docker-standalone`, `refactor/course-standalone`, nhánh kiểm chứng lỗi
+`lab/standalone-ci-*`, và PR có base `refactor/course-standalone`.
+
+1. `build-and-test`: Maven `verify`, gồm cache test H2/Redis và test Flyway với
+   MySQL/Redis thật bằng Testcontainers; lưu `standalone-test-reports`.
+2. `docker-one-command`: tạo project/volume mới, build và khởi động cả ba dịch vụ
+   bằng một Compose command, kiểm tra API/DB/cache/migration/restart; lưu
+   `standalone-docker-proof`.
+3. `deliver-ghcr`: sau hai job trên thành công, push trên hai nhánh chính của
+   bản standalone phát hành image lên GHCR với tag full commit. Job kéo lại
+   image theo digest, triển khai vào runner tạm, kiểm chứng rồi lưu
+   `standalone-delivery-proof`.
+
+CD dùng `GITHUB_TOKEN` có `packages: write` trong job phát hành. Không cần tự
+điền PAT, mật khẩu GHCR hay SSH key vào repository. PR và nhánh thử lỗi không
+phát hành image. Image nằm tại
+`ghcr.io/ngnhuan282/spring-boot-course-management-standalone:sha-<FULL_SHA>`.
+Package mới có thể là private; việc kéo trên runner sử dụng quyền của workflow.
+
+Phạm vi CD là phát hành image và triển khai kiểm chứng vào môi trường tạm của
+GitHub Actions; runner được dọn sau job. Chưa suy ra rằng nhóm đã triển khai
+một máy chủ/AWS hay vận hành hệ thống Chương 12.
+
+## Chạy test và dừng môi trường
+
+Nếu chạy Maven trực tiếp, cần Java 21 và Docker Engine cho Testcontainers:
+
+```powershell
+Set-Location backend
+.\mvnw.cmd -B verify
+```
+
+Các thí nghiệm bean lifecycle, DI và datasource hiện có được giữ nguyên. Test
+H2 dùng chiến lược tạo schema riêng và tắt Flyway; test migration bật Flyway rõ
+ràng với MySQL thật. Build image dùng `-DskipTests`; kết quả test phải đọc từ CI,
+không suy ra từ build image.
+
+Từ thư mục gốc, dừng ba dịch vụ và giữ dữ liệu:
+
+```powershell
+docker compose -f docker-compose.standalone.yml down
+```
+
+Hướng dẫn kiểm chứng và cách viết báo cáo: [docs/standalone-docker.md](docs/standalone-docker.md).
+Tools thu minh chứng, PNG và ZIP để ngoài repository. PR của phần này có base
+`refactor/course-standalone`; không merge nguyên nhánh Docker của bản bốn thực
+thể sang standalone.

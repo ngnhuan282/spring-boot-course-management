@@ -1,0 +1,10 @@
+# Existing H2 cache tests keep their own schema strategy.
+# StandaloneFlywayIntegrationTests explicitly enables Flyway against real MySQL.
+spring:
+  flyway:
+    enabled: false
+  sql:
+    init:
+      mode: never
+  jpa:
+    defer-datasource-initialization: false
