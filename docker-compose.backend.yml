@@ -1,0 +1,65 @@
+# Standalone Compose file; do not combine it with docker-compose.yml.
+name: course-management-docker-flyway
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: course_management
+      MYSQL_USER: course_user
+      MYSQL_PASSWORD: ${COURSE_DOCKER_DB_PASSWORD:-course_docker_password}
+      MYSQL_ROOT_PASSWORD: ${COURSE_DOCKER_ROOT_PASSWORD:-course_root_password}
+    volumes:
+      - docker_backend_mysql_flyway_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", 'MYSQL_PWD="$${MYSQL_PASSWORD}" mysql --host=127.0.0.1 --user="$${MYSQL_USER}" --database="$${MYSQL_DATABASE}" --batch --skip-column-names --execute="SELECT 1"']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    image: course-management-backend:${COURSE_DOCKER_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VCS_REF: ${COURSE_DOCKER_SOURCE_REVISION:-unversioned}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${COURSE_DOCKER_HTTP_PORT:-8088}:8080"
+    environment:
+      SERVER_PORT: "8080"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/course_management?allowPublicKeyRetrieval=true&useSSL=false
+      SPRING_DATASOURCE_USERNAME: course_user
+      SPRING_DATASOURCE_PASSWORD: ${COURSE_DOCKER_DB_PASSWORD:-course_docker_password}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      COURSE_CACHE_TTL: 10m
+      SPRING_CACHE_TYPE: redis
+      # Flyway alone creates the schema and loads opt-in local demo data.
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration,classpath:db/demo
+      SPRING_FLYWAY_BASELINE_ON_MIGRATE: "false"
+      SPRING_FLYWAY_VALIDATE_ON_MIGRATE: "true"
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION: "false"
+      SPRING_SQL_INIT_MODE: never
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  docker_backend_mysql_flyway_data:

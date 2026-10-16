@@ -1,6 +1,11 @@
 spring:
+  profiles:
+    default: dev
   flyway:
-    enabled: false
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    validate-on-migrate: true
   cache:
     type: redis
     cache-names: courseDetails
@@ -18,12 +23,12 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
-    defer-datasource-initialization: true
+      ddl-auto: validate
+    defer-datasource-initialization: false
     show-sql: true
   sql:
     init:
-      mode: always
+      mode: never
 
 server:
   port: 8080
