@@ -159,13 +159,22 @@ class Proof:
         before = self.rows('rows-before-restart')
         self.check('mysql_row_matches_api', len(before) == 4 and any(r['id'] == identity and r['title'] == payload['title'] for r in before), before)
         self.command('restart-backend', self.compose + ['restart', 'backend'])
-        self.command('wait-after-restart', self.compose + ['up', '--no-build', '-d', '--wait', '--wait-timeout', '180', 'backend'], timeout=220)
+        # This step waits for a restart; it must not replace the container.
+        self.command('wait-after-restart', self.compose + ['up', '--no-build', '--no-recreate', '-d', '--wait', '--wait-timeout', '180', 'backend'], timeout=220)
         after_history = self.history('flyway-after-restart')
         after = self.rows('rows-after-restart')
         self.check('flyway_history_and_checksums_unchanged', history == after_history)
         self.check('all_course_rows_unchanged_after_restart', before == after)
         after_id = self.command('backend-id-after-restart', self.compose + ['ps', '-q', 'backend'])
-        self.check('same_backend_container_restarted', after_id == identities['backend'])
+        self.check('same_backend_container_restarted', after_id == identities['backend'],
+                   {'before': identities['backend'], 'after': after_id})
+        after_backend = json.loads(self.command('backend-inspect-after-restart', ['docker', 'inspect', after_id]))[0]
+        self.check('restarted_backend_is_healthy', after_backend['State']['Running']
+                   and after_backend['State'].get('Health', {}).get('Status') == 'healthy'
+                   and after_backend['State']['StartedAt'] != backend['State']['StartedAt'],
+                   {'before_started_at': backend['State']['StartedAt'], 'after_state': after_backend['State']})
+        self.check('restart_preserves_built_image', after_backend['Image'] == backend['Image'],
+                   {'before': backend['Image'], 'after': after_backend['Image']})
         status, retained = self.api('get-course-after-restart', 'GET', f'/api/courses/{identity}')
         self.check('course_readable_after_restart', status == 200 and retained['title'] == payload['title'])
         self.save('runtime-result.json', {'status': 'PASS', 'source_sha': self.args.expected_revision,
