@@ -35,6 +35,10 @@ kế hoạch riêng nếu phải giữ dữ liệu. Với cách chạy này, MyS
 riêng của project; collector dùng project/volume mới cho mỗi lượt thực nghiệm.
 Nếu dùng lại database có V2, luôn giữ location chứa V2 khi validate.
 
+Bảng profile, biến môi trường và quy trình chuyển database cũ có dữ liệu nằm ở
+[Hợp đồng Flyway runtime](flyway-runtime.md). Kiểm thử cấu hình CV3 và lượt
+MySQL/restart CV7 được ghi riêng theo phạm vi của từng lượt.
+
 Compose là cấu hình độc lập, gồm đúng 3 dịch vụ; không ghép với
 `docker-compose.yml` cũ. MySQL/Redis không công bố cổng host. Backend dùng
 `mysql:3306`, `redis:6379` và chỉ công bố HTTP trên loopback 8088→8080.
