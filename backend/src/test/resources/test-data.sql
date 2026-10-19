@@ -1,3 +1,5 @@
+-- CV2 contract: reference IDs are positive; Enrollment status is ACTIVE or COMPLETED.
+-- These fixtures intentionally cover both accepted Enrollment status values.
 INSERT INTO categories (id, name, description, created_at, updated_at)
 VALUES
     (1, 'Backend', 'Courses about server-side development and APIs.', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
