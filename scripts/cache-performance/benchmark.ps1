@@ -14,7 +14,10 @@ param(
     [int]$Warmup = 20,
 
     [ValidateRange(1, 100000)]
-    [int]$Runs = 100,
+    [int]$Runs = 30,
+
+    [ValidateRange(1, 1000)]
+    [int]$Rounds = 3,
 
     [string]$RedisService = "redis",
     [string]$CacheName = "courseDetails",
@@ -40,9 +43,13 @@ $composeFilePath = if ([string]::IsNullOrWhiteSpace($ComposeFile)) {
     (Resolve-Path $ComposeFile).Path
 }
 $resultsRootPath = if ([string]::IsNullOrWhiteSpace($ResultsRoot)) {
-    Join-Path $PSScriptRoot "results"
+    Join-Path (Split-Path -Parent $repoRoot) "cache-benchmark-evidence"
 } else {
     $ResultsRoot
+}
+$resultsRootPath = [IO.Path]::GetFullPath($resultsRootPath).TrimEnd('\', '/')
+if ($resultsRootPath -ieq $repoRoot -or $resultsRootPath.StartsWith($repoRoot + '\', [StringComparison]::OrdinalIgnoreCase)) {
+    throw "ResultsRoot must be outside the repository, as required by STT01."
 }
 
 $baseUri = $BaseUrl.TrimEnd("/")
@@ -50,9 +57,11 @@ $endpoint = "$baseUri/api/courses/$CourseId"
 $healthEndpoint = "$baseUri/api/health"
 $redisKey = "${CacheName}::$CourseId"
 $runStartedAt = Get-Date
-$resultDirectory = Join-Path $resultsRootPath ("{0}_{1}" -f $runStartedAt.ToString("yyyy-MM-dd_HHmmss"), $Mode)
+$resultDirectory = Join-Path $resultsRootPath ("{0}_{1}_{2}" -f $runStartedAt.ToString("yyyy-MM-dd_HHmmss_fff"), $Mode, [guid]::NewGuid().ToString('N').Substring(0, 6))
 $requestRows = [System.Collections.Generic.List[object]]::new()
+$roundRows = [System.Collections.Generic.List[object]]::new()
 $httpClient = $null
+$gitMetadata = $null
 
 function Invoke-NativeCommand {
     param(
@@ -108,20 +117,15 @@ function Get-GitValue {
 }
 
 function Get-GitMetadata {
-    $rawStatus = Get-GitValue -Arguments @("status", "--porcelain")
-    $sourceStatus = Get-GitValue -Arguments @(
-        "status",
-        "--porcelain",
-        "--",
-        ".",
-        ":(exclude)scripts/cache-performance/results/**"
-    )
+    $rawStatus = Get-GitValue -Arguments @("status", "--porcelain=v1", "--untracked-files=all")
 
     return [ordered]@{
         Branch = Get-GitValue -Arguments @("branch", "--show-current")
         Commit = Get-GitValue -Arguments @("rev-parse", "HEAD")
         RawWorkingTree = if ([string]::IsNullOrWhiteSpace($rawStatus)) { "clean" } else { "dirty" }
-        SourceWorkingTree = if ([string]::IsNullOrWhiteSpace($sourceStatus)) { "clean" } else { "dirty" }
+        SourceWorkingTree = if ([string]::IsNullOrWhiteSpace($rawStatus)) { "clean" } else { "dirty" }
+        Status = $rawStatus
+        TrackedDiffSha256 = Get-Sha256Hex -Text (Get-GitValue -Arguments @("diff", "--binary", "HEAD"))
     }
 }
 
@@ -136,6 +140,22 @@ function Get-FirstOutputLine {
     }
 
     return $firstLine[0]
+}
+
+function Get-DotNetDescription {
+    # Windows PowerShell can resolve an older RuntimeInformation facade.
+    # Probe by reflection and keep the CLR version when that API is unavailable.
+    try {
+        $type = [System.Runtime.InteropServices.RuntimeInformation]
+        $property = $type.GetProperty("FrameworkDescription", [Reflection.BindingFlags]"Public,Static")
+        if ($null -ne $property) {
+            $description = [string]$property.GetValue($null, $null)
+            if (-not [string]::IsNullOrWhiteSpace($description)) { return $description }
+        }
+    } catch {
+        # Missing optional metadata must not discard already recorded HTTP samples.
+    }
+    return "CLR $([Environment]::Version); runtime $([Runtime.InteropServices.RuntimeEnvironment]::GetSystemVersion()); FrameworkDescription unavailable"
 }
 
 function Get-SystemMetadata {
@@ -160,6 +180,7 @@ function Get-SystemMetadata {
     [xml]$pom = Get-Content -Raw -LiteralPath (Join-Path $repoRoot "backend\pom.xml")
     return [ordered]@{
         Java = Get-FirstOutputLine -Output $javaVersion
+        JavaObservation = "Host java -version only; not proof of the backend JVM or a forked test JVM. Use the STT01 collector for actual runtime evidence."
         SpringBoot = $pom.project.parent.version
         OS = [System.Runtime.InteropServices.RuntimeInformation]::OSDescription
         CPU = if ([string]::IsNullOrWhiteSpace($cpu)) { "UNAVAILABLE" } else { $cpu }
@@ -186,7 +207,7 @@ function Assert-ComposeServiceRunning {
 
 function Get-DbSelectCounter {
     # The hex literal avoids nested quote loss when Windows PowerShell builds native arguments.
-    $dbCommand = 'echo SHOW GLOBAL STATUS WHERE Variable_name=0x436f6d5f73656c656374\; | mysql -N -B -uroot -p$MYSQL_ROOT_PASSWORD'
+    $dbCommand = 'export MYSQL_PWD=$MYSQL_ROOT_PASSWORD; echo SHOW GLOBAL STATUS WHERE Variable_name=0x436f6d5f73656c656374\; | mysql -N -B -uroot'
     $output = Invoke-Compose -Arguments @("exec", "-T", $DbService, "sh", "-c", $dbCommand)
     $counterLine = @($output | Where-Object { $_.ToString() -match "Com_select" } | Select-Object -Last 1)
     if ($counterLine.Count -eq 0) {
@@ -224,48 +245,72 @@ function Get-RedisKeyExists {
 }
 
 function Get-RedisKeyTtl {
-    return Invoke-RedisIntegerCommand -Arguments @("TTL", $redisKey)
+    return Invoke-RedisIntegerCommand -Arguments @("PTTL", $redisKey)
+}
+
+function Get-RedisObservation {
+    return [pscustomobject]@{ Exists = Get-RedisKeyExists; TtlMs = Get-RedisKeyTtl }
+}
+
+function Assert-RedisObservation {
+    param($Observation, [string]$Stage)
+    if ($Mode -eq "off") {
+        if ($Observation.Exists -ne 0 -or $Observation.TtlMs -ne -2) {
+            throw "OFF $Stage failed: '$redisKey' must remain absent (EXISTS=0, PTTL=-2). Start the backend with spring.cache.type=none."
+        }
+    } elseif ($Observation.Exists -ne 1 -or $Observation.TtlMs -le 0) {
+        throw "$Mode $Stage failed: '$redisKey' must exist with a positive PTTL."
+    }
 }
 
 function Invoke-HttpGet {
     param(
-        [Parameter(Mandatory = $true)][string]$Url,
-        [switch]$Measure
+        [Parameter(Mandatory = $true)][string]$Url
     )
 
-    $timestamp = Get-Date
+    $timestamp = [DateTimeOffset]::Now.ToString("o")
+    $response = $null
+    $status = 0
+    $body = ""
+    $errorText = $null
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-    $response = $httpClient.GetAsync($Url).GetAwaiter().GetResult()
-    $body = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
-    $stopwatch.Stop()
-
-    if (-not $response.IsSuccessStatusCode) {
-        throw "HTTP $([int]$response.StatusCode) from $Url. Body: $body"
+    try {
+        # The SAME boundary is used in OFF, MISS and HIT, including the complete body.
+        # ContentRead keeps HttpClient.Timeout in effect while buffering the body.
+        $response = $httpClient.GetAsync($Url, [System.Net.Http.HttpCompletionOption]::ResponseContentRead).GetAwaiter().GetResult()
+        $status = [int]$response.StatusCode
+        $body = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+    } catch {
+        $errorText = $_.Exception.GetType().FullName
+    } finally {
+        $stopwatch.Stop()
+        if ($null -ne $response) { $response.Dispose() }
     }
-
-    if ($Measure) {
-        return [pscustomobject]@{
-            HttpStatus = [int]$response.StatusCode
-            LatencyMs = [double]$stopwatch.Elapsed.TotalMilliseconds
-            Timestamp = $timestamp.ToString("o")
-        }
-    }
-
     return [pscustomobject]@{
-        HttpStatus = [int]$response.StatusCode
-        Body = $body
+        HttpStatus = $status; Body = $body; Error = $errorText
+        LatencyMs = [double]$stopwatch.Elapsed.TotalMilliseconds; Timestamp = $timestamp
     }
 }
 
-function Invoke-CourseRequest {
-    param([switch]$Measure)
+function Assert-CourseResponse {
+    param($Response, [string]$ExpectedHash = "")
+    if ($Response.Error -or $Response.HttpStatus -ne 200) {
+        throw "Expected HTTP 200 from $endpoint; got $($Response.HttpStatus), transport error: $($Response.Error)."
+    }
+    $payload = $Response.Body | ConvertFrom-Json
+    if ([long]$payload.id -ne $CourseId) { throw "Response Course ID does not match $CourseId." }
+    $hash = Get-Sha256Hex -Text $Response.Body
+    if ($ExpectedHash -and $hash -ne $ExpectedHash) { throw "Course payload changed during the benchmark; discard this comparison." }
+}
 
-    return Invoke-HttpGet -Url $endpoint -Measure:$Measure
+function Invoke-CourseRequest {
+    return Invoke-HttpGet -Url $endpoint
 }
 
 function Invoke-ModePreparation {
     if ($Mode -eq "miss") {
         Remove-RedisKey
+        if ((Get-RedisKeyExists) -ne 0) { throw "MISS preparation failed: selected key still exists." }
     }
 }
 
@@ -312,16 +357,63 @@ function ConvertTo-MarkdownValue {
 }
 
 function Save-PartialRequests {
-    if ($requestRows.Count -eq 0) {
-        return
-    }
-
     $culture = [System.Globalization.CultureInfo]::InvariantCulture
-    $requestRows |
-        Select-Object Run, Mode, CourseId, HttpStatus,
-            @{Name = "LatencyMs"; Expression = { $_.LatencyMs.ToString("F6", $culture) }},
-            Timestamp |
+    if ($requestRows.Count) { $requestRows |
+        Select-Object scenario, round, request, course_id, http_status,
+            @{Name = "latency_ms"; Expression = { $_.latency_ms.ToString("R", $culture) }},
+            timestamp, redis_key, exists_before, pttl_before_ms, exists_after, pttl_after_ms, transport_error |
         Export-Csv -NoTypeInformation -Encoding utf8 -LiteralPath (Join-Path $resultDirectory "requests.csv")
+    }
+    if ($roundRows.Count) { $roundRows | Export-Csv -NoTypeInformation -Encoding utf8 -LiteralPath (Join-Path $resultDirectory "rounds.csv") }
+}
+
+function Assert-OffCache {
+    # These three requests verify OFF before warm-up; none are latency samples.
+    $verification = [ordered]@{
+        Status = "RUNNING"
+        RedisKey = $redisKey
+        Checks = @()
+        SelectBefore = $null
+        SelectAfter = $null
+        SelectDelta = $null
+        CounterScope = "GLOBAL MySQL counter; not an exact count of Course queries."
+        Error = $null
+    }
+    $checks = [System.Collections.Generic.List[object]]::new()
+    try {
+        Remove-RedisKey
+        $verification.SelectBefore = Get-DbSelectCounter
+        for ($probe = 1; $probe -le 3; $probe++) {
+            $response = Invoke-CourseRequest
+            $redis = Get-RedisObservation
+            $checks.Add([pscustomobject]@{
+                Request = $probe
+                HttpStatus = $response.HttpStatus
+                RedisKeyExists = $redis.Exists
+                RedisPttlMs = $redis.TtlMs
+                Timestamp = $response.Timestamp
+            })
+            $verification.Checks = $checks.ToArray()
+            Assert-CourseResponse $response $coursePayloadSha256
+            if ($redis.Exists -ne 0 -or $redis.TtlMs -ne -2) {
+                throw "OFF verification failed: a Redis cache key was created. Check BENCH_CACHE and restart the backend with spring.cache.type=none."
+            }
+        }
+        $verification.SelectAfter = Get-DbSelectCounter
+        $verification.SelectDelta = $verification.SelectAfter - $verification.SelectBefore
+        if ($verification.SelectDelta -le 0) {
+            throw "OFF verification failed: no increase in MySQL Com_select."
+        }
+        $verification.Status = "SUCCESS"
+        return $verification
+    } catch {
+        $verification.Status = "FAILED"
+        $verification.Error = $_.Exception.Message
+        throw
+    } finally {
+        # Keep partial checks even when an intentionally wrong OFF configuration fails.
+        $verification | ConvertTo-Json -Depth 6 | Set-Content -Encoding utf8 -LiteralPath (Join-Path $resultDirectory "off-verification.json")
+    }
 }
 
 try {
@@ -339,92 +431,109 @@ try {
     }
 
     Assert-ComposeServiceRunning -Service $DbService
-    if ($Mode -ne "off") {
-        Assert-ComposeServiceRunning -Service $RedisService
-    }
+    Assert-ComposeServiceRunning -Service $RedisService
 
     $gitMetadata = Get-GitMetadata
     New-Item -ItemType Directory -Force -Path $resultDirectory | Out-Null
+    Copy-Item -LiteralPath $PSCommandPath -Destination (Join-Path $resultDirectory "benchmark.ps1")
 
     $systemMetadata = Get-SystemMetadata
-    $httpClient = [System.Net.Http.HttpClient]::new()
+    $httpHandler = [System.Net.Http.HttpClientHandler]::new()
+    $httpHandler.AllowAutoRedirect = $false
+    $httpClient = [System.Net.Http.HttpClient]::new($httpHandler)
     $httpClient.Timeout = [TimeSpan]::FromSeconds(30)
 
-    [void](Invoke-HttpGet -Url $healthEndpoint)
+    $health = Invoke-HttpGet -Url $healthEndpoint
+    if ($health.Error -or $health.HttpStatus -ne 200) { throw "Health check did not return HTTP 200." }
+    # Only the selected test key is deleted, outside the HTTP timing boundary.
+    Remove-RedisKey
     $coursePreflight = Invoke-CourseRequest
-    $coursePayload = $coursePreflight.Body | ConvertFrom-Json
-    if ([long]$coursePayload.id -ne $CourseId) {
-        throw "Course preflight returned id '$($coursePayload.id)' instead of '$CourseId'."
-    }
+    Assert-CourseResponse $coursePreflight
     $coursePayloadSha256 = Get-Sha256Hex -Text $coursePreflight.Body
+    [IO.File]::WriteAllText((Join-Path $resultDirectory "course-preflight.json"), $coursePreflight.Body, [Text.UTF8Encoding]::new($false))
+    $preflightRedis = Get-RedisObservation
+    if ($Mode -ne "off") { Assert-RedisObservation $preflightRedis "after preflight GET" }
 
     $ttlBefore = $null
     $ttlAfter = $null
     $missContractTtl = $null
-    if ($Mode -eq "miss") {
-        Remove-RedisKey
-        [void](Invoke-CourseRequest)
-        if ((Get-RedisKeyExists) -ne 1) {
-            throw "MISS preflight failed: Redis key '$redisKey' was not created. The cache contract/key may not match or cache may not be active."
-        }
-        $missContractTtl = Get-RedisKeyTtl
-        if ($missContractTtl -le 0) {
-            throw "MISS preflight failed: Redis key '$redisKey' does not have a positive TTL."
-        }
-        Remove-RedisKey
+    $offVerification = $null
+    if ($Mode -eq "off") {
+        $offVerification = Assert-OffCache
+    } elseif ($Mode -eq "miss") {
+        $missContractTtl = $preflightRedis.TtlMs
     } elseif ($Mode -eq "hit") {
-        Remove-RedisKey
-        [void](Invoke-CourseRequest)
-        if ((Get-RedisKeyExists) -ne 1) {
-            throw "Redis key '$redisKey' was not created by the prime request."
-        }
-        $ttlBefore = Get-RedisKeyTtl
-        if ($ttlBefore -le 0) {
-            throw "Redis key '$redisKey' does not have a positive TTL after priming."
-        }
+        $ttlBefore = $preflightRedis.TtlMs
     }
 
+    $lastHitTtl = $ttlBefore
     for ($index = 1; $index -le $Warmup; $index++) {
         Invoke-ModePreparation
-        [void](Invoke-CourseRequest)
+        $warmResponse = Invoke-CourseRequest
+        Assert-CourseResponse $warmResponse $coursePayloadSha256
+        $warmRedis = Get-RedisObservation
+        Assert-RedisObservation $warmRedis "after warm-up $index"
+        if ($Mode -eq "hit") {
+            if ($warmRedis.TtlMs -gt $lastHitTtl) { throw "HIT key TTL increased during warm-up; the key may have been recreated." }
+            $lastHitTtl = $warmRedis.TtlMs
+        }
     }
 
-    $dbSelectBefore = Get-DbSelectCounter
     $measurementStartedAt = Get-Date
-
-    for ($index = 1; $index -le $Runs; $index++) {
-        Invoke-ModePreparation
-        $measurement = Invoke-CourseRequest -Measure
-        $requestRows.Add([pscustomobject]@{
-            Run = $index
-            Mode = $Mode.ToUpperInvariant()
-            CourseId = $CourseId
-            HttpStatus = $measurement.HttpStatus
-            LatencyMs = $measurement.LatencyMs
-            Timestamp = $measurement.Timestamp
+    for ($round = 1; $round -le $Rounds; $round++) {
+        $roundBefore = Get-DbSelectCounter
+        for ($index = 1; $index -le $Runs; $index++) {
+            Invoke-ModePreparation
+            $redisBefore = Get-RedisObservation
+            if ($Mode -eq "miss") {
+                if ($redisBefore.Exists -ne 0 -or $redisBefore.TtlMs -ne -2) { throw "MISS key was not absent before request." }
+            } else { Assert-RedisObservation $redisBefore "before request $round/$index" }
+            if ($Mode -eq "hit" -and $redisBefore.TtlMs -gt $lastHitTtl) { throw "HIT key TTL increased between requests." }
+            $measurement = Invoke-CourseRequest
+            $row = [pscustomobject]@{
+                scenario = $Mode.ToUpperInvariant(); round = $round; request = $index
+                course_id = $CourseId; http_status = $measurement.HttpStatus
+                latency_ms = $measurement.LatencyMs; timestamp = $measurement.Timestamp
+                redis_key = $redisKey; exists_before = $redisBefore.Exists; pttl_before_ms = $redisBefore.TtlMs
+                exists_after = $null; pttl_after_ms = $null; transport_error = $measurement.Error
+            }
+            $requestRows.Add($row)
+            Assert-CourseResponse $measurement $coursePayloadSha256
+            $redisAfter = Get-RedisObservation
+            $row.exists_after = $redisAfter.Exists; $row.pttl_after_ms = $redisAfter.TtlMs
+            Assert-RedisObservation $redisAfter "after request $round/$index"
+            if ($Mode -eq "hit") {
+                if ($redisAfter.TtlMs -gt $redisBefore.TtlMs) { throw "HIT key TTL increased during request; it may have expired and been recreated." }
+                $lastHitTtl = $redisAfter.TtlMs
+            }
+        }
+        $roundAfter = Get-DbSelectCounter
+        $roundRows.Add([pscustomobject]@{
+            scenario = $Mode.ToUpperInvariant(); round = $round; n = $Runs
+            queries_before = $roundBefore; queries_after = $roundAfter; global_select_delta = ($roundAfter - $roundBefore)
         })
+        Save-PartialRequests
+        Write-Host "$($Mode.ToUpperInvariant()) round=$round requests=$Runs Com_select=$roundBefore->$roundAfter key=$redisKey PTTL=$($redisAfter.TtlMs)ms"
+        if ($roundAfter -lt $roundBefore) { throw "MySQL counter decreased; server may have restarted or counters were reset." }
+        if ($Mode -in @("off", "miss") -and $roundAfter -eq $roundBefore) { throw "$Mode has no observed DB SELECT increase in round $round; check backend/database identity." }
     }
 
     $measurementEndedAt = Get-Date
-    $dbSelectAfter = Get-DbSelectCounter
+    $dbSelectBefore = $roundRows[0].queries_before
+    $dbSelectAfter = $roundRows[$roundRows.Count - 1].queries_after
+    if ($Mode -eq "hit") { $ttlAfter = $lastHitTtl }
 
-    if ($Mode -eq "hit") {
-        if ((Get-RedisKeyExists) -ne 1) {
-            throw "Redis key '$redisKey' expired during the measured HIT workload."
-        }
-        $ttlAfter = Get-RedisKeyTtl
-        if ($ttlAfter -le 0) {
-            throw "Redis key '$redisKey' does not have a positive TTL after the measured HIT workload."
-        }
-    }
-
-    $sortedLatencies = [double[]]@($requestRows | ForEach-Object { $_.LatencyMs } | Sort-Object)
+    $sortedLatencies = [double[]]@($requestRows | ForEach-Object { $_.latency_ms } | Sort-Object)
     $average = ($sortedLatencies | Measure-Object -Average).Average
     $median = Get-Median -SortedValues $sortedLatencies
     $p95 = Get-P95NearestRank -SortedValues $sortedLatencies
     $minimum = $sortedLatencies[0]
     $maximum = $sortedLatencies[-1]
-    $dbSelectDelta = $dbSelectAfter - $dbSelectBefore
+    $dbSelectDelta = ($roundRows | Measure-Object -Property global_select_delta -Sum).Sum
+    $gitAfter = Get-GitMetadata
+    $sourceStable = ($gitMetadata.SourceWorkingTree -eq "clean" -and $gitAfter.SourceWorkingTree -eq "clean" -and $gitMetadata.Commit -eq $gitAfter.Commit -and $gitMetadata.Branch -eq $gitAfter.Branch -and $gitMetadata.TrackedDiffSha256 -eq $gitAfter.TrackedDiffSha256)
+    if (-not $sourceStable) { Write-Warning "A clean, stable checkout was not confirmed. HEAD alone does not identify all source; this is not sealed submission evidence." }
+    if ($Mode -eq "hit" -and $dbSelectDelta -ne 0) { Write-Warning "HIT global Com_select increased. It cannot distinguish Course/Category queries from unrelated traffic; investigate before claiming zero DB queries." }
     $runEndedAt = Get-Date
 
     Save-PartialRequests
@@ -441,36 +550,66 @@ try {
         CourseId = $CourseId
         CoursePayloadSha256 = $coursePayloadSha256
         Warmup = $Warmup
-        MeasuredRequests = $Runs
+        MeasuredRequests = $requestRows.Count
         Concurrency = 1
+        Rounds = $Rounds
+        RequestsPerRound = $Runs
+        Measurement = [ordered]@{
+            Tool = "System.Net.Http.HttpClient + System.Diagnostics.Stopwatch"
+            Unit = "milliseconds"
+            Boundary = "Before GetAsync until ReadAsStringAsync completes"
+            ConnectionPolicy = "One HttpClient reused within each scenario"
+            MedianMethod = "Middle sample; average of two middle samples for even N; pooled raw samples"
+            PowerShell = $PSVersionTable.PSVersion.ToString()
+            DotNet = Get-DotNetDescription
+            ScriptSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $resultDirectory "benchmark.ps1")).Hash.ToLowerInvariant()
+            Start = "Immediately before GetAsync(ResponseContentRead); the same buffering policy in all scenarios"
+            Stop = "After ReadAsStringAsync completes (or transport/body-read failure), before response disposal/validation"
+            Metric = "Client-observed HTTP GET latency including full response-body reading/decoding; milliseconds"
+            Excluded = "Redis DEL/EXISTS/PTTL, Docker process time, DB counter queries, response validation and warm-up"
+            NotEquivalentTo = "curl time_total, curl process wall time, or Service execution time"
+            HttpClientLifetime = "One reused HttpClient per scenario process; redirects disabled; sequential requests"
+            P95Method = "Nearest-rank ceil(0.95*n), calculated from all raw samples of this scenario"
+        }
+        OffVerification = $offVerification
         MetricsMs = [ordered]@{
-            Average = [Math]::Round([double]$average, 3)
-            Median = [Math]::Round([double]$median, 3)
-            P95 = [Math]::Round([double]$p95, 3)
-            Min = [Math]::Round([double]$minimum, 3)
-            Max = [Math]::Round([double]$maximum, 3)
+            N = $requestRows.Count
+            Average = [double]$average
+            Median = [double]$median
+            P95 = [double]$p95
+            Min = [double]$minimum
+            Max = [double]$maximum
         }
         Database = [ordered]@{
             Service = $DbService
             Counter = "SHOW GLOBAL STATUS WHERE Variable_name = 'Com_select'"
+            Scope = "GLOBAL MySQL SELECT counter during each measured round"
             SelectBefore = $dbSelectBefore
             SelectAfter = $dbSelectAfter
             SelectDelta = $dbSelectDelta
-            Limitation = "Com_select is global; unrelated database traffic can affect the delta."
+            Limitation = "May include unrelated SELECT statements and SQL health checks; not an exact count of Course queries."
         }
         Cache = [ordered]@{
-            RedisService = if ($Mode -eq "off") { "NOT_ACCESSED" } else { $RedisService }
+            RedisService = $RedisService
             CacheName = $CacheName
             RedisKey = $redisKey
             ExpectedTtlMinutes = $TtlMinutes
-            MissContractTtlSeconds = $missContractTtl
-            TtlSecondsAfterPrime = $ttlBefore
-            TtlSecondsAfterRun = $ttlAfter
+            MissContractPttlMs = $missContractTtl
+            PttlMsAfterPrime = $ttlBefore
+            PttlMsAfterRun = $ttlAfter
+            Checks = "EXISTS/PTTL before and after each measured request; HIT additionally rejects increased TTL. Only the selected key is deleted."
+            ModeDeclaration = "Mode declares the intended backend configuration. Retain actual startup/configuration evidence via STT01."
         }
         Repository = $gitMetadata
+        RepositoryAfter = $gitAfter
+        CleanStableSourceDuringRun = $sourceStable
+        SourceLimitation = "Ignored files and runtime/source linkage are not captured; dirty/untracked bytes are not snapshotted. Keep STT01 before/after and actual startup/source evidence."
         Environment = $systemMetadata
         Files = [ordered]@{
             Requests = "requests.csv"
+            RoundCounters = "rounds.csv"
+            Script = "benchmark.ps1"
+            OffVerification = if ($Mode -eq "off") { "off-verification.json" } else { $null }
             JsonSummary = "summary.json"
             MarkdownSummary = "summary.md"
         }
@@ -489,7 +628,9 @@ try {
         "| Course ID | $CourseId |",
         "| Course payload SHA-256 | $coursePayloadSha256 |",
         "| Warm-up | $Warmup |",
-        "| Measured requests | $Runs |",
+        "| Method | HttpClient + Stopwatch, full response body |",
+        "| Rounds x requests | $Rounds x $Runs |",
+        "| Measured requests | $($requestRows.Count) |",
         "| Concurrency | 1 |",
         "| Average (ms) | $($summary.MetricsMs.Average) |",
         "| Median (ms) | $($summary.MetricsMs.Median) |",
@@ -510,12 +651,20 @@ try {
         "| RAM bytes | $(ConvertTo-MarkdownValue $systemMetadata.RamBytes) |",
         "| Docker | $(ConvertTo-MarkdownValue $systemMetadata.Docker) |",
         "| Redis key | $(ConvertTo-MarkdownValue $redisKey) |",
-        "| MISS contract TTL (seconds) | $(ConvertTo-MarkdownValue $missContractTtl) |",
-        "| TTL after prime (seconds) | $(ConvertTo-MarkdownValue $ttlBefore) |",
-        "| TTL after run (seconds) | $(ConvertTo-MarkdownValue $ttlAfter) |",
+        "| MISS contract PTTL (ms) | $(ConvertTo-MarkdownValue $missContractTtl) |",
+        "| PTTL after prime (ms) | $(ConvertTo-MarkdownValue $ttlBefore) |",
+        "| PTTL after run (ms) | $(ConvertTo-MarkdownValue $ttlAfter) |",
+        "| Clean, stable source | $sourceStable |",
         "",
-        "> DB query note: Com_select is a global MySQL counter. Other database traffic during the measured workload can affect the delta."
+        "> Timing: HttpClient + Stopwatch from send through full response-body reading. This is client HTTP latency, not curl time_total or Service-only time. Redis/Docker/counter operations are outside the timer.",
+        "> Statistics pool all $($requestRows.Count) raw samples; p95 nearest-rank uses rank $([Math]::Ceiling(0.95 * $requestRows.Count)). Dispersion is min/max.",
+        "> DB query note: Com_select is global, not a Course/Category-specific query count. Other traffic can affect the delta; Redis checks introduce gaps between sequential HTTP requests.",
+        "> Environment: Java is host java -version only. Keep STT01 before/after snapshots and actual backend startup/configuration evidence. A dirty checkout is not identified by HEAD alone."
     )
+    $summaryLines += @("", "## DB counters by round", "", "| Round | n | Before | After | Global SELECT delta |", "|---|---|---|---|---|")
+    foreach ($r in $roundRows) {
+        $summaryLines += "| $($r.round) | $($r.n) | $($r.queries_before) | $($r.queries_after) | $($r.global_select_delta) |"
+    }
     $summaryLines | Set-Content -Encoding utf8 -LiteralPath (Join-Path $resultDirectory "summary.md")
 
     Write-Host "Benchmark completed: $resultDirectory"
@@ -533,6 +682,7 @@ try {
         Endpoint = $endpoint
         CourseId = $CourseId
         CompletedMeasuredRequests = $requestRows.Count
+        RepositoryBefore = $gitMetadata
         Error = $_.Exception.Message
         Note = "No successful summary was generated."
     }

@@ -1,107 +1,144 @@
-# Cache Performance Benchmark
+# Đo cache OFF / MISS / HIT
 
-This tool measures the same Course detail endpoint in cache `OFF`, `MISS`, and `HIT` modes. It does not create or modify Course data.
+## Phương pháp thống nhất
 
-## Prerequisites
+Cả ba kịch bản dùng **System.Net.Http.HttpClient + System.Diagnostics.Stopwatch**.
+Timer bắt đầu ngay trước `GetAsync(..., ResponseContentRead)` và dừng sau khi
+`ReadAsStringAsync()` đọc xong toàn bộ body. Mỗi kịch bản tái sử dụng một HttpClient,
+tắt tự động redirect, gửi request tuần tự (concurrency = 1).
 
-- Run commands from the repository root.
-- Docker Desktop and the Compose services used by the selected mode must be running.
-- The backend must be available at `http://localhost:8080` unless `-BaseUrl` is supplied.
-- `-CourseId` must identify an existing Course.
+`latency_ms` là độ trễ HTTP quan sát ở client, gồm gửi/nhận và đọc/giải mã body.
+Đây **không phải curl time_total, thời gian tiến trình curl hay thời gian riêng Service**.
+DEL/EXISTS/PTTL, lệnh Docker, query counter, kiểm tra JSON và warm-up nằm ngoài timer.
+Kiểm tra Redis tạo khoảng nghỉ giữa request; bài này không đo throughput/tải đồng thời.
 
-Start MySQL:
+| Kịch bản | Chuẩn bị backend | Dấu hiệu kiểm tra |
+|---|---|---|
+| OFF | `spring.cache.type=none` | Xóa key thử nghiệm một lần trước preflight; GET không tạo lại key (EXISTS=0, PTTL=-2); counter DB tăng trong mỗi lượt. |
+| MISS | `spring.cache.type=redis` | Xóa đúng key trước từng warm-up/request; key vắng trước GET, tồn tại và PTTL dương sau GET. |
+| HIT | `spring.cache.type=redis` | GET preflight tạo key trước đo; key tồn tại/PTTL dương trước và sau từng request; dừng nếu TTL tăng bất thường, có thể key đã được tạo lại. |
+
+Script chỉ DEL key `${CacheName}::${CourseId}`, không FLUSHALL/FLUSHDB, không sửa Course.
+MySQL và Redis phải chạy trong Compose cho **cả ba** kịch bản, kể cả OFF để quan sát key.
+Mode là cấu hình người chạy khai báo; giữ log startup/cấu hình thực tế để chứng minh.
+Dùng môi trường thử nghiệm riêng, không có client/worker khác đọc/ghi cùng Course/key.
+OFF còn có ba GET kiểm chứng trước warm-up, lưu `off-verification.json`; các probe này
+không nằm trong CSV mẫu đo. Kết quả lỗi vẫn giữ các check đã thu.
+
+**Kiểm tra Task 4 từ mục 5.2:** xem [README_TASK4.md](../../README_TASK4.md), mục 7–9.
+Dùng `-Warmup 5 -Rounds 1 -Runs 5`, SQL log bật để xác minh chức năng. Đây không phải
+phép đo 90 mẫu chính thức của Task 11. Hướng dẫn có Compose riêng để tránh tên container
+MySQL cố định trùng môi trường cũ, và bộ STT01 Host trước/sau từng ca.
+
+## Số mẫu và thống kê
+
+- Mặc định: **20 warm-up**, **3 lượt x 30 request = 90 mẫu/kịch bản**.
+- Warm-up giữ mặc định 20 của công cụ hiện có, loại khỏi thống kê. Nếu baseline đã
+  chốt số khác, truyền cùng `-Warmup` cho cả ba; ghi rõ lựa chọn trong hồ sơ mới.
+- `-Runs` là số request mỗi lượt; `-Rounds` là số lượt. Muốn lặp workload cũ 100
+  request của công cụ: truyền `-Rounds 1 -Runs 100` rõ ràng cho cả ba kịch bản.
+- Mọi request đo phải HTTP 200, đúng ID và cùng SHA256 body với preflight. Lưu mẫu
+  lỗi trước khi dừng; lỗi kết nối ghi status 0, lỗi đọc body giữ status đã nhận.
+- Median tính từ toàn bộ mẫu, không lấy median của ba median. P95 nearest-rank
+  lấy hạng `ceil(0.95*n)` sau sắp xếp (90 mẫu: hạng 86). Độ phân tán là min/max.
+- CSV lưu double dạng round-trip, dấu thập phân `.`; không điền số liệu khi chưa đo.
+
+`rounds.csv` lưu MySQL `Com_select` trước/sau mỗi lượt, không tính preflight/warm-up.
+Đây là counter **toàn server**, không phân biệt Course/Category hay traffic khác.
+Cần log/trace riêng để đếm theo entity. HIT có delta khác 0 sẽ cảnh báo, không tự
+quy mọi query đó cho Course. Không chạy traffic khác trong lúc đo.
+
+## Giữ đúng bộ STT01
+
+- Thu môi trường **before/after mỗi lượt đo thực tế** bằng bộ STT01; chọn Host/Docker,
+  PID/container/database/URL/log startup đúng lượt. Đặt environment và kết quả benchmark
+  trong cùng thư mục hồ sơ ngoài repo. Script không tự restart ứng dụng hoặc chạy STT01.
+- Giữ dataset, ID, source, JVM, logging và tham số giống nhau cho OFF/MISS/HIT, chỉ đổi
+  cấu hình cache. Đối chiếu `CoursePayloadSha256` của cả ba trước khi so sánh.
+- Git trước/sau được lưu. HEAD không đại diện đầy đủ cho tree dirty; không reset-hard
+  để làm sạch. Script không tạo archive toàn source hay chứng minh runtime khớp checkout.
+- Java trong summary chỉ là **host java -version**, không phải JVM backend/forked test.
+  Lấy runtime thực tế từ STT01. Giữ riêng môi trường lịch sử, không thay JVM cũ bằng JVM mới.
+- PNG 01–04 của STT01 là ảnh xuất từ log. Giữ log/JSON gốc và kiểm manifest khi đóng gói
+  theo `Huong-dan.md`. ZIP thành công không tự chứng minh kiểm thử đã đạt.
+
+## Cách chạy
+
+Chọn một Course có thật trong dataset đã chốt; ID 1 dưới đây chỉ là ví dụ.
+Backend/MySQL/Redis phải được chuẩn bị theo README/profile hiện tại của repo.
+Khởi động backend có thể áp dụng migration/seed theo cấu hình: dùng đúng DB thử nghiệm.
+
+Terminal backend OFF (dừng backend cũ trước để tránh trùng cổng):
 
 ```powershell
-docker compose up -d mysql
-```
-
-For cache OFF, start the backend from `backend` with cache explicitly disabled:
-
-```powershell
+Set-Location 'D:\ccclthd\spring-boot-course-management\backend'
 Remove-Item Env:DEBUG -ErrorAction SilentlyContinue
-$env:SPRING_CACHE_TYPE="none"
-$env:SPRING_JPA_SHOW_SQL="false"
+$env:SPRING_CACHE_TYPE = 'none'
+$env:SPRING_JPA_SHOW_SQL = 'false'
+# Giữ datasource/profile của môi trường đã chọn; lưu startup log cho STT01.
 .\mvnw.cmd spring-boot:run
 ```
 
-For cache MISS/HIT, remove the OFF override and keep SQL console logging disabled:
+Terminal đo, sau khi thu STT01-before:
 
 ```powershell
-Remove-Item Env:DEBUG -ErrorAction SilentlyContinue
-Remove-Item Env:SPRING_CACHE_TYPE -ErrorAction SilentlyContinue
-$env:SPRING_JPA_SHOW_SQL="false"
-.\mvnw.cmd spring-boot:run
+Set-Location 'D:\ccclthd\spring-boot-course-management'
+.\scripts\cache-performance\benchmark.ps1 -Mode off -CourseId 1 `
+  -Warmup 20 -Rounds 3 -Runs 30 `
+  -ResultsRoot 'D:\ccclthd\cache-benchmark-evidence'
 ```
 
-Run the benchmark from the repository root:
+Thu STT01-after. Sau đó dừng backend OFF, chạy lại cùng source/dataset/cấu hình khác,
+chỉ đổi `$env:SPRING_CACHE_TYPE = 'redis'`. Giữ SQL logging tắt cho cả ba kịch bản.
+Thu STT01 trước/sau **mỗi** lệnh sau:
 
 ```powershell
-.\scripts\cache-performance\benchmark.ps1 -Mode off -CourseId 1
+.\scripts\cache-performance\benchmark.ps1 -Mode miss -CourseId 1 `
+  -Warmup 20 -Rounds 3 -Runs 30 `
+  -ResultsRoot 'D:\ccclthd\cache-benchmark-evidence'
+
+.\scripts\cache-performance\benchmark.ps1 -Mode hit -CourseId 1 `
+  -Warmup 20 -Rounds 3 -Runs 30 `
+  -ResultsRoot 'D:\ccclthd\cache-benchmark-evidence'
 ```
 
-The example uses Course `1` because it exists in the repository's current seed data. The script never hardcodes or inserts this ID.
+Nếu cần ảnh SQL, chạy một lượt xác minh riêng; không dùng làm mẫu latency.
+Nếu Hibernate SQL DEBUG vẫn xuất hiện, tìm nguồn logging trước khi đo.
 
-After the backend is restarted with cache enabled:
+| Tham số khác | Mặc định |
+|---|---|
+| `-BaseUrl` | `http://localhost:8080` |
+| `-ComposeFile` | `docker-compose.yml` trong repo |
+| `-DbService` / `-RedisService` | `mysql` / `redis` |
+| `-CacheName` | `courseDetails` |
+| `-TtlMinutes` | 10, giá trị kỳ vọng, không thay PTTL quan sát |
+| `-ResultsRoot` | `cache-benchmark-evidence` cạnh repo, bắt buộc ngoài repo |
 
-```powershell
-.\scripts\cache-performance\benchmark.ps1 -Mode miss -CourseId 1
-.\scripts\cache-performance\benchmark.ps1 -Mode hit -CourseId 1
-```
+Redis CLI hiện dùng kết nối mặc định trong container. Môi trường cần ACL/auth/TLS
+phải cấu hình theo thực tế, không đưa credential vào lệnh/log.
 
-## Parameters
+## Hồ sơ đầu ra
 
-| Parameter | Default | Purpose |
-|---|---:|---|
-| `-Mode` | required | `off`, `miss`, or `hit` |
-| `-CourseId` | required | Existing Course ID |
-| `-BaseUrl` | `http://localhost:8080` | Backend base URL |
-| `-Warmup` | `20` | Unrecorded warm-up requests |
-| `-Runs` | `100` | Recorded sequential requests |
-| `-RedisService` | `redis` | Redis Compose service |
-| `-CacheName` | `courseDetails` | Cache name used to build the Redis key |
-| `-DbService` | `mysql` | MySQL Compose service |
-| `-TtlMinutes` | `10` | Expected cache TTL metadata |
-| `-ComposeFile` | repository `docker-compose.yml` | Compose file path |
-| `-ResultsRoot` | `scripts/cache-performance/results` | Output directory |
+Mỗi lần tạo thư mục timestamp/mode/mã riêng ngoài repo, gồm:
 
-## Workloads
+- `benchmark.ps1`: bản script đã dùng.
+- `course-preflight.json`: dữ liệu đối chiếu.
+- `requests.csv`: scenario, round, request, http_status, latency_ms, key, EXISTS/PTTL...
+- `rounds.csv`: số mẫu và counter DB trước/sau từng lượt.
+- `summary.json`, `summary.md`: phương pháp, n/median/p95/min/max, Git và giới hạn.
+- `off-verification.json` (OFF): ba probe, HTTP status, key/PTTL, counter GLOBAL trước/sau.
 
-- `OFF`: warm up, read DB counter, measure requests, read DB counter. Redis is never accessed.
-- `MISS`: preflight by deleting the selected key, requesting the Course once, verifying that the key exists with a positive TTL, then deleting it again. During the workload, delete only `courseDetails::<id>` before each warm-up and measured request. Redis checks and key deletion are outside measured HTTP latency.
-- `HIT`: delete the key once, prime it once, verify it exists and has a positive TTL, then run warm-up and measured requests without deleting it.
+`summary.json.Measurement` ghi PowerShell/.NET và SHA256 bản script đã dùng cùng phương
+pháp đo. `OffVerification` chứa kết quả probe riêng, không gộp vào mẫu thống kê.
 
-The tool never calls `FLUSHALL` or `FLUSHDB`.
+Nếu lỗi: `failure.json` và CSV đã thu, không tạo successful summary.
+Không gộp run khác commit thành một lần đo; không thay kết luận standalone cũ, kể cả
+52,87%, bằng số liệu chưa có.
 
-Native commands are executed through a shared Windows PowerShell-compatible helper. Valid stderr output, such as `java -version` or a MySQL warning, is captured without failing a successful command. A non-zero native exit code still fails the benchmark and is written to `failure.json`.
+Mô tả dùng cho báo cáo **sau khi chạy thật**, điền các chỗ trống từ hồ sơ:
 
-## Metrics
-
-Latency starts immediately before the HTTP send and stops only after the complete response body is read. Statistics are calculated from full-precision values:
-
-- Average: arithmetic mean.
-- Median: middle sample, or the mean of the two middle samples for an even count.
-- P95: nearest-rank method, sorted position `ceil(0.95 * N)`.
-- Min and Max.
-- DB SELECT delta: MySQL `Com_select` after minus before.
-- Data identity: SHA-256 of the raw Course preflight response body.
-
-`Com_select` is a global MySQL counter. Unrelated database traffic during the measured workload can change the delta, so measurements should run without other traffic.
-
-Before every final latency run, remove `DEBUG` from the environment and set `SPRING_JPA_SHOW_SQL=false`. Confirm that Hibernate SQL DEBUG statements are absent; if they remain, stop and identify the logging source before measuring. If SQL console output is needed for a report screenshot, run a separate verification that is not used as latency evidence.
-
-Use JDK 21 for final product measurements when it is available. The benchmark records the actual Java runtime, so a run made with another JDK must be reported with that real version.
-
-## Output
-
-Each attempt creates a timestamped directory such as:
-
-```text
-scripts/cache-performance/results/2026-10-04_150000_off/
-  requests.csv
-  summary.json
-  summary.md
-```
-
-A failed attempt writes `failure.json` and, when available, partial `requests.csv`. It does not write a successful summary.
-
-The output records branch, commit, two working-tree states, Java, Spring Boot, OS, CPU, RAM, Docker, endpoint, workload, cache key, TTL observations, and DB counter values. `RawWorkingTree` reflects the complete Git status. `SourceWorkingTree` excludes only `scripts/cache-performance/results/**`, so evidence from an earlier run does not make unchanged source appear dirty. Production source, tests, scripts, reports, and configuration remain part of `SourceWorkingTree`. No database or Redis password is written to the result files.
+> Lượt [mã/thời điểm], commit [full SHA], đo OFF/MISS/HIT bằng HttpClient + Stopwatch.
+> Timer từ gửi GET đến đọc xong body; lệnh Redis và query counter nằm ngoài timer.
+> Mỗi kịch bản có [warm-up] request khởi động không tính mẫu và [lượt] x [request]
+> mẫu tuần tự. Median/p95 nearest-rank/min/max tính trên toàn bộ mẫu hợp lệ.
+> Dataset, JVM runtime và cấu hình của lượt được lưu kèm hồ sơ STT01.
