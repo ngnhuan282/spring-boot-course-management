@@ -1,0 +1,4 @@
+# Local demo data; explicit migration-only profiles keep their own locations.
+spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/demo

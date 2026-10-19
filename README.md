@@ -55,7 +55,7 @@ Nhóm tập trung làm rõ và thực hành các nội dung:
 
 - JUnit 5, Mockito và MockMvc
 - Testcontainers Redis cho cache integration test
-- Docker Compose cho MySQL và Redis runtime
+- Docker Compose cho backend, MySQL và Redis; Flyway quản lý schema
 - GitHub Actions workflow cho Maven verify và Surefire artifacts
 
 ---
@@ -89,6 +89,8 @@ spring-boot-course-management/
 ├── docs/
 ├── .env.example
 ├── .gitignore
+├── Dockerfile
+├── docker-compose.backend.yml
 ├── docker-compose.yml
 └── README.md
 ```
@@ -128,93 +130,63 @@ Business logic không được đặt trực tiếp trong Controller.
 
 ## 5. Yêu cầu môi trường
 
-Cài đặt trước:
-
-- **Java 21**
-- **Git**
-- **Docker Desktop** để chạy MySQL, Redis và cache integration test
-- IDE hỗ trợ Java/Spring Boot, khuyến nghị IntelliJ IDEA
-
-Kiểm tra Java:
-
-```bash
-java -version
-```
-
-Kết quả cần sử dụng Java 21.
+Để chạy hệ thống bằng Docker: Git, Docker Desktop chạy Linux containers và
+Docker Compose v2.20 trở lên. Không cần Java/Maven trên host cho cách chạy này.
+Java 21 cần khi chạy backend/test trên host hoặc IDE. Cache integration test
+cần Docker daemon vì sử dụng Testcontainers.
 
 ---
 
 ## 6. Cách chạy project
 
-Clone repository:
-
-```bash
-git clone https://github.com/ngnhuan282/spring-boot-course-management.git
-```
-
-Khởi động MySQL và Redis từ thư mục gốc của repository trước khi chạy backend:
-
-```bash
-cd spring-boot-course-management
-docker compose up -d --wait
-cd backend
-```
-
-Nếu máy đã có MySQL dùng cổng `3306`, chọn cổng khác cho MySQL Docker và đặt URL kết nối backend tương ứng. Ví dụ trong PowerShell, từ thư mục gốc:
+Từ thư mục gốc repository, chạy toàn bộ backend, MySQL và Redis bằng **một lệnh**:
 
 ```powershell
-$env:MYSQL_PORT = '3307'
-docker compose up -d --wait
-cd backend
-$env:SPRING_DATASOURCE_URL = 'jdbc:mysql://localhost:3307/course_management'
-.\mvnw.cmd spring-boot:run
+docker compose -f docker-compose.backend.yml up --build -d --wait --wait-timeout 600
 ```
 
-`MYSQL_PORT` chỉ đổi cổng Docker công bố; backend cần `SPRING_DATASOURCE_URL` để kết nối đúng cổng đó.
-
-Ứng dụng dùng Redis tại `localhost:6379` và cache kết quả `GET /api/courses/{id}` trong 10 phút. Có thể đổi `REDIS_HOST`, `REDIS_PORT` và `COURSE_CACHE_TTL` bằng biến môi trường; cổng Docker Compose lấy từ `REDIS_PORT`. Sau khi cập nhật hoặc xóa Course, cache của Course đó được xóa. Đổi tên Category sẽ xóa toàn bộ cache Course detail vì response có `categoryName`.
-
-Có thể kiểm tra key và nội dung JSON từ thư mục gốc của repository bằng:
-
-```bash
-docker compose exec redis redis-cli --scan --pattern 'courseDetails::*'
-docker compose exec redis redis-cli GET 'courseDetails::1'
-docker compose exec redis redis-cli TTL 'courseDetails::1'
-```
-
-### Windows PowerShell / CMD
-
-```bash
-mvnw.cmd spring-boot:run
-```
-
-hoặc:
-
-```bash
-.\mvnw.cmd spring-boot:run
-```
-
-### macOS / Linux
-
-```bash
-./mvnw spring-boot:run
-```
-
-### Chạy test
-
-Cache integration test sử dụng Testcontainers Redis nên Docker daemon phải hoạt động. Chạy toàn bộ regression từ thư mục gốc repository:
+Cần Docker Desktop chạy Linux containers và Git; Java 21/Maven chạy trong image.
+Swagger: <http://127.0.0.1:8088/swagger-ui/index.html>.
 
 ```powershell
-cd backend
-.\mvnw.cmd clean test
+docker compose -f docker-compose.backend.yml ps
+curl.exe -i http://127.0.0.1:8088/api/health
+curl.exe -i http://127.0.0.1:8088/api/courses
 ```
 
-Khi chạy thành công, ứng dụng mặc định hoạt động tại:
+`docker-compose.backend.yml` độc lập với `docker-compose.yml` cũ. MySQL/Redis
+không công bố cổng host. Project mặc định dùng volume riêng; lệnh `down` giữ dữ liệu.
+Có thể đặt `COURSE_DOCKER_HTTP_PORT=8089` trong môi trường trước khi chạy nếu 8088 bận.
+Các giá trị mẫu có trong `.env.example`; hướng dẫn đầy đủ ở
+[docs/docker-backend.md](docs/docker-backend.md).
 
-```text
-http://localhost:8080
+### Quản lý schema bằng Flyway
+
+`application.yml` mặc định bật Flyway, dùng Hibernate `validate` và tắt SQL init.
+V1 tạo schema. Compose chọn thêm location `db/demo` để V2 nạp dữ liệu mẫu local
+(2 Category, 3 Course, 2 Student, 3 Enrollment). Migration đã áp dụng được giữ nguyên.
+
+Cấu hình không tự baseline database cũ do Hibernate tạo. Với dữ liệu cũ cần giữ,
+cần kế hoạch chuyển đổi riêng; không xóa volume hay dùng `repair` để che lỗi.
+Cách chạy Docker ở trên sử dụng database trong volume riêng. Khi chạy backend
+trên host/IDE, cấp `SPRING_DATASOURCE_URL`, username/password và `REDIS_HOST` cho
+MySQL mới hoặc database đã có đúng history Flyway; profile mặc định `dev` đọc cả `db/migration` và `db/demo`.
+Profile migration riêng vẫn chọn `db/migration` theo cấu hình của profile đó.
+Nếu chạy lại trên database từng dùng V2, cần giữ location chứa V2 để Flyway
+validate được đầy đủ các migration đã áp dụng.
+
+### Kiểm thử
+
+Từ thư mục `backend`, với Java 21 và Docker daemon đang chạy:
+
+```powershell
+.\mvnw.cmd -B verify
 ```
+
+Test dùng cấu hình riêng trong `src/test/resources/application.yml` (H2,
+Flyway tắt, Hibernate `create-drop`); migration MySQL được kiểm chứng riêng
+trong Docker. Dockerfile dùng `-DskipTests` để đóng gói; GitHub Actions mới là
+lượt build/test tự động. Không suy ra test đã chạy từ log build image.
 
 ---
 
@@ -370,7 +342,7 @@ git commit -m "docs: configure Swagger OpenAPI"
 - [x] Global Exception Handler
 - [x] Unit, repository, API và cache integration tests
 - [x] Spring Cache + Redis cho Course detail
-- [x] Docker Compose cho MySQL và Redis
+- [x] Docker Compose cho backend, MySQL và Redis
 - [x] GitHub Actions workflow đã được cấu hình
 - [ ] Đo và so sánh hiệu năng OFF/MISS/HIT
 - [ ] Hoàn thiện báo cáo và hands-on lab
