@@ -35,11 +35,11 @@ public class EnrollmentController {
     private final EnrollmentService enrollmentService;
 
     @PostMapping
-    @Operation(summary = "Tạo lượt ghi danh", description = "Ghi danh học viên vào khóa học; mỗi cặp studentId/courseId chỉ có một lượt ghi danh, bất kể trạng thái.")
+    @Operation(summary = "Tạo lượt ghi danh", description = "Ghi danh học viên vào khóa học; studentId và courseId bắt buộc lớn hơn 0; status chỉ nhận ACTIVE hoặc COMPLETED. Mỗi cặp studentId/courseId chỉ có một lượt ghi danh, bất kể trạng thái.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Ghi danh thành công",
                     content = @Content(schema = @Schema(implementation = EnrollmentResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Dữ liệu ghi danh không hợp lệ",
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED: thiếu trường, ID không dương hoặc status khác ACTIVE/COMPLETED",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
             @ApiResponse(responseCode = "404", description = "Không tìm thấy học viên (STUDENT_NOT_FOUND) hoặc khóa học (COURSE_NOT_FOUND)",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
@@ -88,11 +88,11 @@ public class EnrollmentController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Cập nhật ghi danh", description = "Sửa học viên, khóa học hoặc trạng thái; cặp studentId/courseId phải chưa thuộc lượt ghi danh khác, bất kể trạng thái. Được giữ cặp hiện tại.")
+    @Operation(summary = "Cập nhật ghi danh", description = "Sửa học viên, khóa học hoặc trạng thái; studentId và courseId bắt buộc lớn hơn 0; status chỉ nhận ACTIVE hoặc COMPLETED. Cặp studentId/courseId phải chưa thuộc lượt ghi danh khác, bất kể trạng thái. Được giữ cặp hiện tại.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Cập nhật thành công",
                     content = @Content(schema = @Schema(implementation = EnrollmentResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Dữ liệu ghi danh không hợp lệ",
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED: thiếu trường, ID không dương hoặc status khác ACTIVE/COMPLETED",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),
             @ApiResponse(responseCode = "404", description = "Không tìm thấy lượt ghi danh (ENROLLMENT_NOT_FOUND), học viên (STUDENT_NOT_FOUND) hoặc khóa học (COURSE_NOT_FOUND)",
                     content = @Content(schema = @Schema(implementation = com.ccnlthd.course_management.dto.response.ApiResponse.class))),

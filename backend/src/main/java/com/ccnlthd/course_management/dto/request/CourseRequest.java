@@ -3,6 +3,7 @@ package com.ccnlthd.course_management.dto.request;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -16,6 +17,8 @@ import java.math.BigDecimal;
 public class CourseRequest {
 
     @NotNull(message = "Category id is required")
+    @Positive(message = "Category id must be positive")
+    @Schema(minimum = "1", example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long categoryId;
 
     @NotBlank(message = "Course title is required")
