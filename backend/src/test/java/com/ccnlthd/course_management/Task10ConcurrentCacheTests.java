@@ -6,6 +6,7 @@ import com.ccnlthd.course_management.dto.request.CourseRequest;
 import com.ccnlthd.course_management.service.CategoryService;
 import com.ccnlthd.course_management.service.CourseService;
 import com.ccnlthd.course_management.support.Task10Harness;
+import com.ccnlthd.course_management.support.Task10Environment;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -23,6 +24,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.DynamicPropertyRegistrar;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -45,7 +48,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 
 import static com.ccnlthd.course_management.support.Task10Harness.JSON;
-import static com.ccnlthd.course_management.support.Task10Harness.env;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 
@@ -64,34 +66,29 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 @ActiveProfiles("task10")
 @Execution(ExecutionMode.SAME_THREAD)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class Task10ConcurrentCacheTests {
     @TestConfiguration(proxyBeanMethods = false)
     static class TraceConfiguration {
-        @Bean Task10Harness task10Harness() { return new Task10Harness(); }
+        @Bean(destroyMethod = "close")
+        Task10Environment task10Environment() { return Task10Environment.create(); }
+        @Bean DynamicPropertyRegistrar task10Endpoints(Task10Environment environment) {
+            return environment::register;
+        }
+        @Bean Task10Harness task10Harness(Task10Environment environment) {
+            return new Task10Harness(environment);
+        }
         @Bean HibernatePropertiesCustomizer task10Inspector(Task10Harness harness) {
             return properties -> properties.put("hibernate.session_factory.statement_inspector", harness);
         }
     }
 
     @DynamicPropertySource
-    static void endpoints(DynamicPropertyRegistry registry) {
-        String url = env("T10_JDBC_URL");
-        if (!url.startsWith("jdbc:mysql://127.0.0.1:")
-                || !url.contains("/task10_concurrency?")) {
-            throw new IllegalStateException("Use the dedicated local task10_concurrency database");
-        }
-        String host = env("T10_REDIS_HOST");
-        String port = env("T10_REDIS_PORT");
-        registry.add("spring.datasource.url", () -> url);
-        registry.add("spring.datasource.driver-class-name", () -> "com.mysql.cj.jdbc.Driver");
-        registry.add("spring.datasource.username", () -> env("T10_DB_USER"));
-        registry.add("spring.datasource.password", () -> env("T10_DB_PASSWORD"));
-        registry.add("spring.data.redis.host", () -> host);
-        registry.add("spring.data.redis.port", () -> Integer.parseInt(port));
-        registry.add("spring.data.redis.database", () -> 0);
-        registry.add("spring.data.redis.url", () -> "redis://" + host + ":" + port + "/0");
-        registry.add("spring.data.redis.ssl.enabled", () -> false);
-        registry.add("course.cache.concurrent-guard-enabled", () -> env("T10_GUARD_ENABLED"));
+    static void guardProperty(DynamicPropertyRegistry registry) {
+        // Infrastructure advisors can create the gate before registrar beans run.
+        // Register its flag before context refresh, including external Baseline=false.
+        registry.add("course.cache.concurrent-guard-enabled",
+                () -> System.getenv().getOrDefault("T10_GUARD_ENABLED", "true"));
     }
 
     @Autowired WebApplicationContext context;
@@ -102,6 +99,7 @@ class Task10ConcurrentCacheTests {
     @Autowired StringRedisTemplate redis;
     @Autowired JdbcTemplate jdbc;
     @Autowired Task10Harness h;
+    @Autowired Task10Environment environment;
 
     private MockMvc mvc;
     private ExecutorService pool;
@@ -112,6 +110,8 @@ class Task10ConcurrentCacheTests {
 
     @BeforeAll
     void instrumentRealProxies() {
+        assertEquals(environment.guardEnabled(), gate.isEnabled(),
+                "The production guard must match the selected Task 10 environment");
         assertAdvisorOrder(courseService, true);
         assertAdvisorOrder(categoryService, false);
         h.install(courseService, jdbc);
