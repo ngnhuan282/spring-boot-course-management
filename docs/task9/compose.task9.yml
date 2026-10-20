@@ -1,0 +1,31 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: task09_cache
+      MYSQL_USER: task09_user
+      MYSQL_PASSWORD: task09_local_password
+      MYSQL_ROOT_PASSWORD: task09_local_root_password
+    ports:
+      - "127.0.0.1:${T9_MYSQL_PORT:-13309}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", 'MYSQL_PWD="$${MYSQL_PASSWORD}" mysql --host=127.0.0.1 --user="$${MYSQL_USER}" --database="$${MYSQL_DATABASE}" --execute="SELECT 1"']
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 30s
+
+  redis:
+    image: redis:7.4-alpine
+    ports:
+      - "127.0.0.1:${T9_REDIS_PORT:-16379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  mysql_data:
