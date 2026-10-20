@@ -20,6 +20,16 @@ jobs:
       T9_REDIS_HOST: 127.0.0.1
       T9_RUN_ID: ci-${{ github.run_id }}-${{ github.run_attempt }}
       T9_SOURCE_SHA: ${{ github.sha }}
+      T10_COMPOSE_PROJECT: task10-ci-${{ github.run_id }}-${{ github.run_attempt }}
+      T10_MYSQL_PORT: '13310'
+      T10_REDIS_PORT: '16380'
+      T10_JDBC_URL: jdbc:mysql://127.0.0.1:13310/task10_concurrency?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+      T10_DB_USER: task10_user
+      T10_DB_PASSWORD: task10_local_password
+      T10_REDIS_HOST: 127.0.0.1
+      T10_GUARD_ENABLED: 'true'
+      T10_RUN_ID: ci-${{ github.run_id }}-${{ github.run_attempt }}
+      T10_SOURCE_SHA: ${{ github.sha }}
     defaults:
       run:
         working-directory: backend
@@ -40,7 +50,14 @@ jobs:
           docker compose -p "$T9_COMPOSE_PROJECT" -f ../docs/task9/compose.task9.yml
           up -d --wait --wait-timeout 300
 
+      - name: Start Task 10 MySQL and Redis
+        run: >-
+          docker compose -p "$T10_COMPOSE_PROJECT" -f ../docs/task10/compose.task10.yml
+          up -d --wait --wait-timeout 300
+
       - name: Build and run tests
+        env:
+          T10_EVIDENCE_DIR: ${{ runner.temp }}/task10-evidence/scenarios
         run: >-
           sh ./mvnw -B
           -Djunit.jupiter.execution.parallel.enabled=false
@@ -53,6 +70,13 @@ jobs:
           mkdir -p "$RUNNER_TEMP/task9-evidence"
           docker compose -p "$T9_COMPOSE_PROJECT" -f ../docs/task9/compose.task9.yml ps -a > "$RUNNER_TEMP/task9-evidence/services.log" 2>&1
           docker compose -p "$T9_COMPOSE_PROJECT" -f ../docs/task9/compose.task9.yml logs --no-color > "$RUNNER_TEMP/task9-evidence/containers.log" 2>&1
+
+      - name: Collect Task 10 service logs
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/task10-evidence"
+          docker compose -p "$T10_COMPOSE_PROJECT" -f ../docs/task10/compose.task10.yml ps -a > "$RUNNER_TEMP/task10-evidence/services.log" 2>&1
+          docker compose -p "$T10_COMPOSE_PROJECT" -f ../docs/task10/compose.task10.yml logs --no-color > "$RUNNER_TEMP/task10-evidence/containers.log" 2>&1
 
       - name: Save test reports
         if: always()
@@ -71,6 +95,20 @@ jobs:
           name: task9-evidence
           path: ${{ runner.temp }}/task9-evidence/
           if-no-files-found: warn
+
+      - name: Save Task 10 evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: task10-evidence
+          path: ${{ runner.temp }}/task10-evidence/
+          if-no-files-found: warn
+
+      - name: Stop Task 10 MySQL and Redis
+        if: always()
+        run: >-
+          docker compose -p "$T10_COMPOSE_PROJECT" -f ../docs/task10/compose.task10.yml
+          down --volumes
 
       - name: Stop Task 9 MySQL and Redis
         if: always()
