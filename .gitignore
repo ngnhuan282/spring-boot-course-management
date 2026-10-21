@@ -5,6 +5,10 @@
 # Maven
 **/target/
 
+# .NET build output
+**/bin/
+**/obj/
+
 # Environment
 .env
 *.env

@@ -177,6 +177,8 @@ cd backend
 
 Redis mặc định ở `localhost:6379`; TTL cache Course detail là 10 phút. Có thể đổi bằng `SPRING_DATA_REDIS_HOST`, `SPRING_DATA_REDIS_PORT` và `APP_CACHE_COURSE_DETAIL_TTL`.
 
+Flyway được bật mặc định và chạy migration trong `backend/src/main/resources/db/migration` trước khi JPA khởi tạo. Hibernate dùng `ddl-auto: validate`; `spring.sql.init.mode: never` ngăn chạy lại `data.sql` mỗi lần khởi động. Database mới tự được chuẩn bị khi chạy ứng dụng. Database cũ chưa có lịch sử Flyway cần làm theo phần **Database cũ** bên dưới.
+
 Chỉ `GET /api/courses/{id}` dùng cache `standaloneCourseDetails`. Sau khi sửa hoặc xóa Course thành công, entry tương ứng được xóa sau commit. Từ thư mục gốc có thể xem JSON và TTL bằng:
 
 ```bash
@@ -404,14 +406,47 @@ Phiên bản hiện tại tập trung vào việc hoàn thiện nền tảng Spr
 
 Course dùng REST Controller, Service, Spring Data JPA, Bean Validation và Global Exception Handler. Request/response của Course chỉ gồm `title`, `description`, `price`, `level`, `status` (response có thêm `id`). Backend chỉ còn module Course; các file Category, Student và Enrollment đã được gỡ khỏi mã nguồn.
 
-Chuẩn bị MySQL 8.4 bằng `docker compose up -d mysql`. Nếu dùng database cũ, chạy migration **trước khi khởi động ứng dụng**:
+Chuẩn bị MySQL 8.4 và Redis bằng `docker compose up -d --wait`. Flyway quản lý schema và dữ liệu mẫu bằng ba migration:
+
+| Migration | Nội dung |
+|---|---|
+| `V1__create_standalone_courses.sql` | Tạo bảng `courses` nếu chưa có; JPA kiểm tra cấu trúc bằng `validate`. |
+| `V2__detach_legacy_course_relationships.sql` | Nếu còn schema tích hợp: bỏ khóa ngoại Category, cho phép `courses.category_id` nhận `NULL`, bỏ khóa ngoại `enrollments.course_id`. Giữ các bảng, cột, giá trị và dòng dữ liệu cũ. |
+| `V3__seed_standalone_courses.sql` | Nạp ba Course mẫu một lần; không ghi đè các ID đã tồn tại. |
+
+Database mới có bảng nghiệp vụ `courses` và `flyway_schema_history`. Các migration đã áp dụng không chạy lại khi restart, nên Course đã sửa hoặc xóa không bị dữ liệu mẫu khôi phục. File `data.sql` và script chuyển đổi thủ công `migration/course-standalone-mysql.sql` được giữ để đối chiếu lịch sử; quy trình khởi động mới dùng các migration Flyway ở trên.
+
+### Database cũ chưa có `flyway_schema_history`
+
+Cấu hình mặc định `baseline-on-migrate: false` yêu cầu người chạy xác nhận trước khi tiếp nhận database có sẵn. Sao lưu và kiểm tra đúng database Course độc lập trước bước này. Nếu database đã có lịch sử Flyway từ bản tích hợp, dùng database/schema riêng cho nhánh standalone vì hai nhánh có chuỗi migration khác nhau; không sửa hoặc xóa lịch sử cũ.
+
+Với database cũ **chưa có lịch sử Flyway**, chạy một lần từ thư mục `backend`:
 
 ```powershell
-Get-Content backend/src/main/resources/migration/course-standalone-mysql.sql -Raw |
-  docker exec -i course-management-mysql mysql -u course_user -pcourse_password -D course_management
+$env:SPRING_FLYWAY_BASELINE_ON_MIGRATE = 'true'
+$env:SPRING_FLYWAY_BASELINE_VERSION = '0'
+try {
+    .\mvnw.cmd spring-boot:run
+} finally {
+    Remove-Item Env:SPRING_FLYWAY_BASELINE_ON_MIGRATE -ErrorAction SilentlyContinue
+    Remove-Item Env:SPRING_FLYWAY_BASELINE_VERSION -ErrorAction SilentlyContinue
+}
 ```
 
-Migration bỏ khóa ngoại Category, cho phép `courses.category_id` nhận `NULL`, và bỏ khóa ngoại `enrollments.course_id`; giữ nguyên các cột, giá trị và mọi dòng dữ liệu cũ. Với database mới, Hibernate chỉ tạo bảng `courses` cho nghiệp vụ, nên không cần chạy migration. `ddl-auto: update` không tự bỏ bảng và ràng buộc cũ. Các bảng Category, Student, Enrollment có sẵn trong database cũ vẫn được giữ để tránh mất dữ liệu, nhưng ứng dụng không còn ánh xạ hoặc sử dụng chúng. Nếu xóa Course từng có Enrollment cũ, dòng Enrollment cũ có thể trỏ tới ID Course không còn tồn tại.
+Sau khi ứng dụng khởi động thành công, dừng bằng `Ctrl+C`; các lần tiếp theo dùng lệnh chạy bình thường, không bật baseline. Phiên bản baseline phải là **0** để V1, V2 và V3 đều được thực hiện. Nếu schema cũ thiếu cột hoặc sai kiểu dữ liệu, Hibernate sẽ báo lỗi kiểm tra schema thay vì tự chỉnh cấu trúc.
+
+Các bảng Category, Student, Enrollment cũ vẫn được giữ, nhưng ứng dụng standalone không ánh xạ hoặc sử dụng chúng. Sau khi bỏ khóa ngoại, dòng Enrollment cũ có thể trỏ tới ID Course đã bị xóa.
+
+### Kiểm tra Flyway và restart
+
+```sql
+SELECT installed_rank, version, description, type, script, success
+FROM flyway_schema_history ORDER BY installed_rank;
+```
+
+Database mới có ba migration SQL thành công, phiên bản hiện tại là `3`. Database cũ được tiếp nhận có thêm dòng baseline `0`. Khi restart, lịch sử migration và dữ liệu Course không đổi.
+
+`StandaloneFlywayIntegrationTests` dùng MySQL 8.4 riêng qua Testcontainers để kiểm tra database mới, restart, từ chối tự baseline và tiếp nhận schema cũ giữ dữ liệu. `CourseCacheIntegrationTests` tiếp tục dùng H2/Redis với Flyway tắt rõ trong lớp test; profile thí nghiệm datasource `m05` cũng tắt Flyway để giữ đúng phạm vi thí nghiệm cũ.
 
 Chạy build/test và ứng dụng từ thư mục `backend`:
 
