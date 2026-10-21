@@ -35,6 +35,7 @@ public final class Task10Harness implements StatementInspector {
     public record Pause(String method, CountDownLatch ready, CountDownLatch release) {}
     private record Installed(Advised proxy, Advisor outer, Advisor inner) {}
 
+    private final Task10Environment environment;
     private final AtomicLong sequence = new AtomicLong();
     private final ThreadLocal<String> actor = ThreadLocal.withInitial(() -> "MAIN");
     private final List<Map<String, Object>> events = new CopyOnWriteArrayList<>();
@@ -46,18 +47,16 @@ public final class Task10Harness implements StatementInspector {
     private final List<Installed> installed = new ArrayList<>();
     private String scenario;
 
+    public Task10Harness(Task10Environment environment) {
+        this.environment = environment;
+    }
+
     public static Map<String, Object> row(Object... pairs) {
         Map<String, Object> result = new LinkedHashMap<>();
         for (int i = 0; i < pairs.length; i += 2) {
             result.put(pairs[i].toString(), pairs[i + 1]);
         }
         return result;
-    }
-
-    public static String env(String name) {
-        String value = System.getenv(name);
-        if (value == null || value.isBlank()) throw new IllegalStateException("Missing " + name);
-        return value;
     }
 
     public void reset(String name) {
@@ -205,7 +204,7 @@ public final class Task10Harness implements StatementInspector {
 
     public Map<String, Object> database(Long categoryId, List<Long> ids) {
         try (Connection c = DriverManager.getConnection(
-                env("T10_JDBC_URL"), env("T10_DB_USER"), env("T10_DB_PASSWORD"))) {
+                environment.jdbcUrl(), environment.dbUser(), environment.dbPassword())) {
             c.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
             c.setAutoCommit(true);
             if (!"MySQL".equals(c.getMetaData().getDatabaseProductName())
@@ -274,10 +273,11 @@ public final class Task10Harness implements StatementInspector {
     }
 
     public void write(boolean passed, boolean guardEnabled) throws IOException {
-        Path root = Path.of(env("T10_EVIDENCE_DIR")).resolve(scenario);
+        Path root = environment.evidenceDirectory().resolve(scenario);
         Files.createDirectories(root);
         var document = row("scenario", scenario, "passed", passed,
-                "run_id", env("T10_RUN_ID"), "source_sha", env("T10_SOURCE_SHA"),
+                "run_id", environment.runId(), "source_sha", environment.sourceSha(),
+                "environment", environment.metadata(),
                 "guard_enabled", guardEnabled, "profile", "task10",
                 "policy", "serialized writes; last applied committed PUT wins; one JVM",
                 "execution", "SpringBootTest MOCK; MockMvc; real MySQL and Redis; host test JVM",
@@ -289,6 +289,17 @@ public final class Task10Harness implements StatementInspector {
                 "events", List.copyOf(events), "steps", List.copyOf(steps),
                 "http_exchanges", List.copyOf(exchanges));
         json(root.resolve("scenario.json"), document);
+        // Keep a complete JSON copy for workflows collecting Surefire *.txt.
+        // XML-only workflows do not upload this additional snapshot file.
+        if (environment.automatic()) {
+            Path report = Path.of("target", "surefire-reports", "task10-" + scenario + ".txt");
+            Files.createDirectories(report.getParent());
+            json(report, document);
+        }
+        System.out.println("T10_RESULT " + JSON.writeValueAsString(row(
+                "scenario", scenario, "passed", passed, "run_id", environment.runId(),
+                "source_sha", environment.sourceSha(), "guard_enabled", guardEnabled,
+                "evidence", root.toAbsolutePath().toString())));
         json(root.resolve("timeline.json"), List.copyOf(events));
         for (int i = 0; i < steps.size(); i++) {
             json(root.resolve(String.format("%02d-%s.json", i + 1, steps.get(i).get("stage"))),
