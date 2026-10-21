@@ -21,28 +21,24 @@ import java.util.concurrent.TimeUnit;
 public final class Task09Evidence {
     public static final JsonMapper JSON = JsonMapper.builder().build();
 
-    private Task09Evidence() {}
+    private final Task09Environment runtime;
 
-    public static String requiredEnv(String name) {
-        String value = System.getenv(name);
-        if (value == null || value.isBlank()) {
-            throw new IllegalStateException("Missing environment variable: " + name);
-        }
-        return value;
+    public Task09Evidence(Task09Environment runtime) {
+        this.runtime = runtime;
     }
 
-    public static Map<String, Object> environment() {
-        Map<String, Object> result = new LinkedHashMap<>();
+    public Map<String, Object> environment() {
+        Map<String, Object> result = new LinkedHashMap<>(runtime.metadata());
         result.put("database", "MySQL");
-        result.put("jdbc_url", requiredEnv("T9_JDBC_URL"));
-        result.put("database_user", requiredEnv("T9_DB_USER"));
-        result.put("redis_host", requiredEnv("T9_REDIS_HOST"));
-        result.put("redis_port", requiredEnv("T9_REDIS_PORT"));
+        result.put("database_user", runtime.dbUser());
+        result.put("redis_host", runtime.redisHost());
+        result.put("redis_port", Integer.toString(runtime.redisPort()));
         result.put("redis_database", 0);
-        result.put("run_id", requiredEnv("T9_RUN_ID"));
-        result.put("source_sha", requiredEnv("T9_SOURCE_SHA"));
+        result.put("run_id", runtime.runId());
+        result.put("source_sha", runtime.sourceSha());
         result.put("profile", "task09");
-        result.put("execution", "SpringBootTest MOCK; real beans; MockMvc in-process; external MySQL and Redis");
+        result.put("execution", "SpringBootTest MOCK; real beans; MockMvc in-process; real MySQL and Redis; "
+                + (runtime.automatic() ? "Testcontainers" : "external services"));
         result.put("rollback", "TransactionTemplate on test thread; real service proxies; explicit flush; forced exception");
         result.put("schema", "Flyway classpath:db/migration; Hibernate validate; SQL init never");
         result.put("java_version", System.getProperty("java.version"));
@@ -66,12 +62,15 @@ public final class Task09Evidence {
         return state;
     }
 
-    private static Connection independentConnection() throws SQLException {
-        Connection connection = DriverManager.getConnection(requiredEnv("T9_JDBC_URL"),
-                requiredEnv("T9_DB_USER"), requiredEnv("T9_DB_PASSWORD"));
+    private Connection independentConnection() throws SQLException {
+        Connection connection = DriverManager.getConnection(runtime.jdbcUrl(),
+                runtime.dbUser(), runtime.dbPassword());
         try {
             if (!"MySQL".equalsIgnoreCase(connection.getMetaData().getDatabaseProductName())) {
                 throw new IllegalStateException("Task 9 requires a real MySQL server");
+            }
+            if (!"task09_cache".equals(connection.getCatalog())) {
+                throw new IllegalStateException("Task 9 requires the dedicated task09_cache database");
             }
             connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
             connection.setAutoCommit(true);
@@ -82,7 +81,7 @@ public final class Task09Evidence {
         }
     }
 
-    public static Map<String, Object> committedSnapshot(Long categoryId, List<Long> courseIds) {
+    public Map<String, Object> committedSnapshot(Long categoryId, List<Long> courseIds) {
         try (Connection connection = independentConnection()) {
             Map<String, Object> snapshot = new LinkedHashMap<>();
             snapshot.put("scope", "committed rows; independent JDBC connection; READ_COMMITTED; autoCommit=true");
@@ -134,7 +133,7 @@ public final class Task09Evidence {
         }
     }
 
-    private static String scalar(String sql, Long id) {
+    private String scalar(String sql, Long id) {
         try (Connection connection = independentConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setLong(1, id);
@@ -146,11 +145,11 @@ public final class Task09Evidence {
         }
     }
 
-    public static String committedCategoryName(Long id) {
+    public String committedCategoryName(Long id) {
         return scalar("SELECT name FROM categories WHERE id=?", id);
     }
 
-    public static String committedCourseTitle(Long id) {
+    public String committedCourseTitle(Long id) {
         return scalar("SELECT title FROM courses WHERE id=?", id);
     }
 
@@ -158,7 +157,7 @@ public final class Task09Evidence {
         Files.writeString(file, JSON.writerWithDefaultPrettyPrinter().writeValueAsString(value));
     }
 
-    public static void write(String scenario, int configuredTtlSeconds, List<Map<String, Object>> steps)
+    public void write(String scenario, int configuredTtlSeconds, List<Map<String, Object>> steps)
             throws IOException {
         Map<String, Object> evidence = new LinkedHashMap<>();
         evidence.put("scenario", scenario);
@@ -171,11 +170,7 @@ public final class Task09Evidence {
         evidence.put("configured_ttl_seconds", configuredTtlSeconds);
         evidence.put("query_definition", "Hibernate statements for the action only; snapshot queries excluded. A JOIN can touch both tables.");
         evidence.put("steps", steps);
-        String output = System.getProperty("task9.evidence.directory");
-        if (output == null || output.isBlank()) {
-            throw new IllegalStateException("Missing -Dtask9.evidence.directory");
-        }
-        Path directory = Path.of(output);
+        Path directory = runtime.evidenceDirectory();
         Files.createDirectories(directory);
         writeJson(directory.resolve(scenario + ".json"), evidence);
         Path raw = directory.resolve(scenario);

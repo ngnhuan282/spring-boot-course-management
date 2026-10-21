@@ -7,6 +7,7 @@ import com.ccnlthd.course_management.repository.CourseRepository;
 import com.ccnlthd.course_management.service.CategoryService;
 import com.ccnlthd.course_management.service.CourseService;
 import com.ccnlthd.course_management.support.Task09Evidence;
+import com.ccnlthd.course_management.support.Task09Environment;
 import com.ccnlthd.course_management.support.M15SqlTrace;
 import com.ccnlthd.course_management.support.M15SqlTraceConfiguration;
 import jakarta.persistence.EntityManager;
@@ -14,10 +15,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.DynamicPropertyRegistrar;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -58,27 +61,21 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.jpa.open-in-view=false",
         "spring.sql.init.mode=never"
 })
-@Import(M15SqlTraceConfiguration.class)
+@Import({M15SqlTraceConfiguration.class, Task09MySqlCacheTests.EnvironmentConfiguration.class})
 @ActiveProfiles("task09")
 @Execution(ExecutionMode.SAME_THREAD)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class Task09MySqlCacheTests {
-    @DynamicPropertySource
-    static void mysqlAndRedis(DynamicPropertyRegistry registry) {
-        String url = Task09Evidence.requiredEnv("T9_JDBC_URL");
-        if (!url.startsWith("jdbc:mysql://127.0.0.1:") || !url.contains("/task09_cache?")) {
-            throw new IllegalStateException("Use the dedicated local task09_cache database");
+    @TestConfiguration(proxyBeanMethods = false)
+    static class EnvironmentConfiguration {
+        @Bean(destroyMethod = "close")
+        Task09Environment task09Environment() { return Task09Environment.create(); }
+        @Bean DynamicPropertyRegistrar task09Endpoints(Task09Environment runtime) {
+            return runtime::register;
         }
-        String redisHost = Task09Evidence.requiredEnv("T9_REDIS_HOST");
-        int redisPort = Integer.parseInt(Task09Evidence.requiredEnv("T9_REDIS_PORT"));
-        registry.add("spring.datasource.url", () -> url);
-        registry.add("spring.datasource.driver-class-name", () -> "com.mysql.cj.jdbc.Driver");
-        registry.add("spring.datasource.username", () -> Task09Evidence.requiredEnv("T9_DB_USER"));
-        registry.add("spring.datasource.password", () -> Task09Evidence.requiredEnv("T9_DB_PASSWORD"));
-        registry.add("spring.data.redis.host", () -> redisHost);
-        registry.add("spring.data.redis.port", () -> redisPort);
-        registry.add("spring.data.redis.database", () -> 0);
-        registry.add("spring.data.redis.url", () -> "redis://" + redisHost + ":" + redisPort + "/0");
-        registry.add("spring.data.redis.ssl.enabled", () -> false);
+        @Bean Task09Evidence task09Evidence(Task09Environment runtime) {
+            return new Task09Evidence(runtime);
+        }
     }
 
     @Autowired WebApplicationContext context;
@@ -90,6 +87,7 @@ class Task09MySqlCacheTests {
     @Autowired PlatformTransactionManager transactionManager;
     @Autowired EntityManager entityManager;
     @Autowired M15SqlTrace sql;
+    @Autowired Task09Evidence evidence;
 
     private MockMvc mvc;
     private Long categoryId;
@@ -106,11 +104,11 @@ class Task09MySqlCacheTests {
         courseIds = List.of(courseService.createCourse(courseRequest("T9 Course A")).getId(),
                 courseService.createCourse(courseRequest("T9 Course B")).getId());
         steps = new ArrayList<>();
-        Map<String, Object> committed = Task09Evidence.committedSnapshot(categoryId, courseIds);
+        Map<String, Object> committed = evidence.committedSnapshot(categoryId, courseIds);
         assertEquals("MySQL", committed.get("database_product"));
         assertEquals("task09_cache", committed.get("catalog"));
-        assertEquals(categoryName, Task09Evidence.committedCategoryName(categoryId));
-        assertNotNull(Task09Evidence.committedCourseTitle(courseIds.get(0)));
+        assertEquals(categoryName, evidence.committedCategoryName(categoryId));
+        assertNotNull(evidence.committedCourseTitle(courseIds.get(0)));
         System.out.printf("T9_ENV product=%s version=%s catalog=%s JVM=%s PID=%d%n",
                 committed.get("database_product"), committed.get("server_version"), committed.get("catalog"),
                 System.getProperty("java.version"), ProcessHandle.current().pid());
@@ -135,7 +133,7 @@ class Task09MySqlCacheTests {
         request(get("/api/courses/{id}", id), 200, "hit");
         assertEquals(0, lastActionSql.selectStatements());
         assertEquals(originalJson, cached(id));
-        Task09Evidence.write("miss-hit", 600, steps);
+        evidence.write("miss-hit", 600, steps);
     }
 
     @Test
@@ -149,7 +147,7 @@ class Task09MySqlCacheTests {
         assertFalse(exists(id));
         assertEquals(otherJson, cached(courseIds.get(1)));
         assertEquals("T9 Updated Course", courseRepository.findById(id).orElseThrow().getTitle());
-        assertEquals("T9 Updated Course", Task09Evidence.committedCourseTitle(id));
+        assertEquals("T9 Updated Course", evidence.committedCourseTitle(id));
 
         MvcResult reload = request(get("/api/courses/{id}", id), 200, "course-update-reload");
         assertTrue(reload.getResponse().getContentAsString().contains("T9 Updated Course"));
@@ -157,12 +155,12 @@ class Task09MySqlCacheTests {
         request(delete("/api/courses/{id}", id), 204, "course-delete-after-commit");
         assertFalse(exists(id));
         assertFalse(courseRepository.existsById(id));
-        assertNull(Task09Evidence.committedCourseTitle(id));
+        assertNull(evidence.committedCourseTitle(id));
         assertEquals(otherJson, cached(courseIds.get(1)));
         MvcResult missing = request(get("/api/courses/{id}", id), 404, "course-delete-get-404");
         assertTrue(missing.getResponse().getContentAsString().contains("COURSE_NOT_FOUND"));
         assertFalse(exists(id));
-        Task09Evidence.write("course-update-delete", 600, steps);
+        evidence.write("course-update-delete", 600, steps);
     }
 
     @Test
@@ -179,14 +177,14 @@ class Task09MySqlCacheTests {
             entityManager.flush();
             assertEquals(before, courseIds.stream().map(this::cached).toList(),
                     "Category invalidation must wait for the outer transaction commit");
-            assertEquals(categoryName, Task09Evidence.committedCategoryName(categoryId),
+            assertEquals(categoryName, evidence.committedCategoryName(categoryId),
                     "Another MySQL connection must still see the old committed name");
             capture("category-rename-before-commit", response);
         });
         sql.clear();
         capture("category-rename-after-commit", null);
         assertEquals(renamed, categoryRepository.findById(categoryId).orElseThrow().getName());
-        assertEquals(renamed, Task09Evidence.committedCategoryName(categoryId));
+        assertEquals(renamed, evidence.committedCategoryName(categoryId));
         assertTrue(courseIds.stream().noneMatch(this::exists));
 
         for (Long id : courseIds) {
@@ -196,7 +194,7 @@ class Task09MySqlCacheTests {
             assertTrue(lastActionSql.categorySelects() > 0);
             assertCachedCategory(id, renamed);
         }
-        Task09Evidence.write("category-rename-two-courses", 600, steps);
+        evidence.write("category-rename-two-courses", 600, steps);
     }
 
     @Test
@@ -212,14 +210,14 @@ class Task09MySqlCacheTests {
             assertEquals(before, courseIds.stream().map(this::cached).toList());
             assertTrue(sql.snapshot().statements().stream().anyMatch(statement ->
                     statement.stripLeading().toLowerCase(java.util.Locale.ROOT).startsWith("update")));
-            assertEquals(categoryName, Task09Evidence.committedCategoryName(categoryId));
+            assertEquals(categoryName, evidence.committedCategoryName(categoryId));
             capture("category-rollback-before-rollback", null);
             throw new IllegalStateException("T9 forced Category rollback");
         }));
         sql.clear();
         capture("category-rollback-after-rollback", null);
         assertEquals(categoryName, categoryRepository.findById(categoryId).orElseThrow().getName());
-        assertEquals(categoryName, Task09Evidence.committedCategoryName(categoryId));
+        assertEquals(categoryName, evidence.committedCategoryName(categoryId));
         assertEquals(before, courseIds.stream().map(this::cached).toList());
         for (Long id : courseIds) {
             MvcResult hit = request(get("/api/courses/{id}", id), 200, "category-rollback-hit-" + id);
@@ -228,7 +226,7 @@ class Task09MySqlCacheTests {
             assertEquals(0, lastActionSql.selectStatements());
             assertCachedCategory(id, categoryName);
         }
-        Task09Evidence.write("category-rollback", 600, steps);
+        evidence.write("category-rollback", 600, steps);
     }
 
     @Test
@@ -243,14 +241,14 @@ class Task09MySqlCacheTests {
         assertEquals(before, courseIds.stream().map(this::cached).toList());
         assertTrue(lastActionSql.statements().stream().noneMatch(statement ->
                 statement.stripLeading().toLowerCase(java.util.Locale.ROOT).startsWith("delete")));
-        Task09Evidence.write("category-delete-conflict", 600, steps);
+        evidence.write("category-delete-conflict", 600, steps);
     }
 
     @Test
     void rolledBackCourseUpdateKeepsCommittedDatabaseAndBothCachedResponses() throws IOException {
         primeBoth();
         Long id = courseIds.get(0);
-        String originalTitle = Task09Evidence.committedCourseTitle(id);
+        String originalTitle = evidence.committedCourseTitle(id);
         List<String> before = courseIds.stream().map(this::cached).toList();
         String attemptedTitle = "T9 rolled-back course " + UUID.randomUUID();
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
@@ -263,7 +261,7 @@ class Task09MySqlCacheTests {
                     entityManager.flush();
                     assertTrue(sql.snapshot().statements().stream().anyMatch(statement ->
                             statement.stripLeading().toLowerCase(java.util.Locale.ROOT).startsWith("update")));
-                    assertEquals(originalTitle, Task09Evidence.committedCourseTitle(id));
+                    assertEquals(originalTitle, evidence.committedCourseTitle(id));
                     assertEquals(before, courseIds.stream().map(this::cached).toList());
                     capture("course-rollback-before-rollback", response);
                     throw new IllegalStateException("T9_FORCED_COURSE_ROLLBACK");
@@ -271,18 +269,18 @@ class Task09MySqlCacheTests {
         assertEquals("T9_FORCED_COURSE_ROLLBACK", error.getMessage());
         sql.clear();
         capture("course-rollback-after-rollback", null);
-        assertEquals(originalTitle, Task09Evidence.committedCourseTitle(id));
+        assertEquals(originalTitle, evidence.committedCourseTitle(id));
         assertEquals(before, courseIds.stream().map(this::cached).toList());
         for (Long courseId : courseIds) {
             MvcResult hit = request(get("/api/courses/{id}", courseId), 200,
                     "course-rollback-hit-" + courseId);
             assertEquals(0, lastActionSql.selectStatements());
-            assertEquals(Task09Evidence.committedCourseTitle(courseId),
+            assertEquals(evidence.committedCourseTitle(courseId),
                     Task09Evidence.JSON.readValue(hit.getResponse().getContentAsString(),
                             com.ccnlthd.course_management.dto.response.CourseResponse.class).getTitle());
             assertCachedCategory(courseId, categoryName);
         }
-        Task09Evidence.write("course-rollback", 600, steps);
+        evidence.write("course-rollback", 600, steps);
     }
 
     private void primeBoth() {
@@ -329,7 +327,7 @@ class Task09MySqlCacheTests {
                 .map(course -> Map.of("id", course.getId(), "title", course.getTitle(),
                         "categoryId", course.getCategory().getId())).orElse(null)).toList());
         step.put("database", database);
-        step.put("committed_database", Task09Evidence.committedSnapshot(categoryId, courseIds));
+        step.put("committed_database", evidence.committedSnapshot(categoryId, courseIds));
         steps.add(step);
         System.out.printf("T9 | %s | HTTP=%s | SELECT Course=%d Category=%d Total=%d | keys=%s%n",
                 stage, step.get("http_status"), actionSql.courseSelects(), actionSql.categorySelects(),
