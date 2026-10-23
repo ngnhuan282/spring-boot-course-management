@@ -315,7 +315,7 @@ function Invoke-ModePreparation {
 }
 
 function Get-Sha256Hex {
-    param([Parameter(Mandatory = $true)][string]$Text)
+    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Text)
 
     $sha256 = [System.Security.Cryptography.SHA256]::Create()
     try {
