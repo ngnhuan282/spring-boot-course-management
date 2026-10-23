@@ -47,14 +47,14 @@ Nhóm tập trung làm rõ và thực hành các nội dung:
 - Spring Cache
 - Redis 7.4
 - MySQL 8.4 cho runtime
-- H2 in-memory ở chế độ tương thích MySQL cho test tự động
+- H2 cho các test dùng cấu hình mặc định; MySQL 8.4/Redis 7.4 riêng cho các ca tích hợp cache và transaction
 - Lombok
 - Springdoc OpenAPI / Swagger UI
 
 ### Kiểm thử và vận hành
 
-- JUnit 5, Mockito và MockMvc
-- Testcontainers Redis cho cache integration test
+- JUnit Jupiter, Mockito và MockMvc; phiên bản do POM của commit đang chạy quản lý
+- Testcontainers MySQL/Redis cho các ca tích hợp tương ứng; không dùng database đang phát triển
 - Docker Compose cho backend, MySQL và Redis; Flyway quản lý schema
 - GitHub Actions workflow cho Maven verify và Surefire artifacts
 
@@ -183,9 +183,11 @@ Từ thư mục `backend`, với Java 21 và Docker daemon đang chạy:
 .\mvnw.cmd -B verify
 ```
 
-Test dùng cấu hình riêng trong `src/test/resources/application.yml` (H2,
-Flyway tắt, Hibernate `create-drop`); migration MySQL được kiểm chứng riêng
-trong Docker. Dockerfile dùng `-DskipTests` để đóng gói; GitHub Actions mới là
+Test mặc định dùng `src/test/resources/application.yml` (H2, Flyway tắt,
+Hibernate `create-drop`). Các ca MySQL/Redis và đồng thời có cấu hình
+riêng, tự tạo Testcontainers MySQL/Redis và bật Flyway với Hibernate
+`validate`. Phải có Docker daemon để chạy đầy đủ `verify`. Không suy
+ra database của một ca chỉ từ cấu hình test mặc định. Dockerfile dùng `-DskipTests` để đóng gói; GitHub Actions mới là
 lượt build/test tự động. Không suy ra test đã chạy từ log build image.
 
 ---
@@ -241,7 +243,7 @@ Swagger được sử dụng để:
 
 ## 9. Phạm vi case study
 
-Bài toán minh họa dự kiến sử dụng các thực thể chính:
+Bài toán minh họa sử dụng các thực thể chính:
 
 - `Category`
 - `Course`
@@ -323,7 +325,7 @@ git commit -m "docs: configure Swagger OpenAPI"
 
 ---
 
-## 11. Tiến độ hiện tại
+## 11. Các mốc và phần đã triển khai
 
 ### Tuần 1
 
@@ -344,8 +346,8 @@ git commit -m "docs: configure Swagger OpenAPI"
 - [x] Spring Cache + Redis cho Course detail
 - [x] Docker Compose cho backend, MySQL và Redis
 - [x] GitHub Actions workflow đã được cấu hình
-- [ ] Đo và so sánh hiệu năng OFF/MISS/HIT
-- [ ] Hoàn thiện báo cáo và hands-on lab
+- Đo OFF/MISS/HIT: công cụ đã có trong scripts/cache-performance; số liệu nghiệm thu gắn SHA nằm trong hồ sơ ngoài Git
+- Báo cáo và hands-on lab: bản nộp được quản lý trong hồ sơ cuối kỳ ngoài repository
 
 ---
 
@@ -389,6 +391,33 @@ Phân công chi tiết được quản lý trong file kế hoạch tiến độ 
 
 ## 15. Trạng thái dự án
 
-> **Đang phát triển**
+> **Trạng thái nghiệm thu được ghi trong hồ sơ theo commit**
 
-Phiên bản hiện tại tập trung vào việc hoàn thiện nền tảng Spring Boot và các nội dung học tập theo yêu cầu môn học trước khi mở rộng nghiệp vụ.
+Phạm vi sản phẩm là backend Category, Course, Student và Enrollment. Phiên bản nộp được xác định bằng SHA và bộ kết quả nghiệm thu tương ứng ở mục dưới.
+
+---
+
+## Nghiệm thu phiên bản cuối
+
+Hoàn tất README, mã nguồn và workflow trước khi chọn commit nghiệm thu.
+Nhóm dùng commit đã merge vào `develop`; lấy đầy đủ SHA bằng
+`git rev-parse HEAD`. Bộ nghiệm thu lưu SHA, README, CI `push`, nguồn
+đóng gói, kết quả kiểm thử, HTTP, Flyway và benchmark của cùng commit.
+Kết quả và Bảng phủ được lưu ngoài repository trong hồ sơ nộp.
+
+Cách chạy sản phẩm là lệnh ở mục 6. Khi nghiệm thu, chọn project
+Compose/volume riêng bằng `COMPOSE_PROJECT_NAME`, và đổi cổng bằng
+`COURSE_DOCKER_HTTP_PORT` để tránh dùng database đang phát triển.
+Dữ liệu mẫu local thuộc V2; `down` không kèm `-v` giữ volume.
+
+Benchmark chạy công cụ trong `scripts/cache-performance/benchmark.ps1`,
+cùng dataset, 3 vòng × 30 mẫu/chế độ OFF, MISS, HIT, warm-up 20.
+Đối chứng OFF chỉ đổi `SPRING_CACHE_TYPE` qua cấu hình nghiệm thu
+ngoài repo; image/mã nguồn giữ nguyên. Số liệu là latency HTTP phía
+client gồm đọc toàn bộ response; không đồng nhất với thời gian Service.
+Bộ đếm MySQL toàn cục có thể gồm health check.
+
+Các mốc minh chứng trước được giữ là lịch sử. Nếu sửa mã, POM,
+README hoặc CI sau khi chọn commit, nghiệm thu lại phiên bản mới.
+Không ghi SHA của chính commit vào README rồi tạo thêm commit để
+thay SHA đó; SHA đầy đủ nằm trong hồ sơ nghiệm thu ngoài Git.
