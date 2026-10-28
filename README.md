@@ -264,51 +264,51 @@ Swagger được sử dụng để:
 
 ## 9. Phạm vi case study
 
-Bài toán minh họa chỉ sử dụng thực thể `Course`, với API tạo, xem, cập nhật và xóa khóa học. Phạm vi nghiệp vụ được giữ ở mức vừa đủ để minh họa các nội dung Spring Boot đã đăng ký.
+Nhánh `refactor/course-standalone` tập trung vào thực thể `Course`, theo luồng Controller → Service → Repository. Dữ liệu đầu vào gồm `title`, `description`, `price`, `level`, `status`; phản hồi Course có thêm `id`.
+
+### API Course
+
+| Phương thức | Endpoint | Kết quả thành công |
+|---|---|---|
+| GET | `/api/courses` | `200`, danh sách Course |
+| GET | `/api/courses/{id}` | `200`, chi tiết Course |
+| POST | `/api/courses` | `201`, Course được tạo |
+| PUT | `/api/courses/{id}` | `200`, Course sau cập nhật |
+| DELETE | `/api/courses/{id}` | `204`, thân phản hồi rỗng |
+
+Ví dụ JSON cho POST và PUT trong Swagger, với `Content-Type: application/json`:
+
+```json
+{
+  "title": "Spring Boot thực hành",
+  "description": "REST và JPA",
+  "price": 499000,
+  "level": "BEGINNER",
+  "status": "DRAFT"
+}
+```
+
+`title`, `price`, `level`, `status` là các trường bắt buộc; giá phải từ 0 trở lên. Phản hồi thành công trả đối tượng Course hoặc danh sách Course trực tiếp. Phản hồi lỗi gồm `code`, `message`, `result`, `timestamp`.
+
+| Trường hợp | HTTP | Mã lỗi |
+|---|---|---|
+| Dữ liệu vi phạm validation, ví dụ title rỗng hoặc giá âm | 400 | `VALIDATION_FAILED` |
+| Đọc, cập nhật hoặc xóa ID Course không tồn tại | 404 | `COURSE_NOT_FOUND` |
 
 ---
 
 ## 10. Git Workflow
 
-Repository sử dụng mô hình:
+Các thay đổi của bản tích hợp được quản lý trên `develop`; các thay đổi riêng của Course độc lập được tạo từ `refactor/course-standalone` và mở pull request về chính nhánh này.
 
-```text
-main
-└── develop
-    └── feature branches
-```
+Quy trình cho Course độc lập:
 
-Ví dụ:
+1. Chọn nhánh `refactor/course-standalone` làm nguồn.
+2. Tạo nhánh chức năng hoặc tài liệu cho công việc cụ thể.
+3. Commit, push và mở pull request về `refactor/course-standalone`.
+4. Review thay đổi, đọc kết quả build/test rồi merge.
 
-```text
-feat/week1-core-init
-feat/course-crud
-feat/bean-validation
-feat/global-exception-handler
-feat/redis-cache
-test/course-service
-docs/update-readme
-```
-
-Quy trình:
-
-```text
-develop
-   ↓
-feature branch
-   ↓
-commit
-   ↓
-push
-   ↓
-Pull Request
-   ↓
-Code Review
-   ↓
-merge vào develop
-```
-
-Không commit trực tiếp vào `main`.
+Giữ các thay đổi của Course độc lập trong đúng phạm vi nhánh; không commit trực tiếp vào `main`.
 
 ### Quy ước commit gợi ý
 
@@ -318,59 +318,30 @@ fix: sửa lỗi
 docs: cập nhật tài liệu
 test: thêm hoặc sửa test
 refactor: tái cấu trúc code
-chore: công việc cấu hình / bảo trì
-```
-
-Ví dụ:
-
-```bash
-git commit -m "feat: add health check endpoint"
-git commit -m "docs: configure Swagger OpenAPI"
+chore: công việc cấu hình hoặc bảo trì
 ```
 
 ---
 
-## 11. Tiến độ hiện tại
+## 11. Chức năng đã triển khai
 
-### Tuần 1
-
-- [x] Khởi tạo Spring Boot project
-- [x] Thiết lập cấu trúc package cơ bản
-- [x] Tạo `/api/health`
-- [x] Cấu hình Swagger / OpenAPI
-- [x] Kiểm tra project chạy trên port `8080`
-- [ ] Hoàn thiện tài liệu và minh chứng Tuần 1
-
-### Các giai đoạn tiếp theo
-
-- [ ] Spring Data JPA và thiết kế Entity
-- [ ] CRUD cơ bản
-- [ ] Bean Validation
-- [ ] Global Exception Handler
-- [ ] Testing
-- [ ] Spring Cache + Redis
-- [ ] Đo và so sánh hiệu năng
-- [ ] Docker / Docker Compose
-- [ ] GitHub Actions
-- [ ] Hoàn thiện báo cáo và hands-on lab
+- [x] Health check và Swagger/OpenAPI.
+- [x] REST Controller, Service và Constructor Injection.
+- [x] Spring Data JPA, MySQL và CRUD Course.
+- [x] Bean Validation và xử lý ngoại lệ tập trung.
+- [x] Spring Cache kết hợp Redis, TTL và vô hiệu hóa cache sau commit.
+- [x] Flyway quản lý schema và dữ liệu mẫu.
+- [x] Kiểm thử tự động cho cache, migration và các bài thực nghiệm bean/dependency.
+- [x] Docker Compose cung cấp MySQL và Redis.
+- [x] Cấu hình GitHub Actions build và kiểm thử nhánh Course độc lập.
 
 ---
 
 ## 12. Lưu ý bảo mật
 
-Không commit các thông tin nhạy cảm như:
+Giữ mật khẩu thực, API key, secret, token và file `.env` ngoài Git. Các giá trị trong `.env.example` là cấu hình mẫu cho môi trường demo cục bộ.
 
-- Password
-- API Key
-- Secret Key
-- Token
-- File `.env`
-
-Các biến môi trường mẫu được khai báo trong:
-
-```text
-.env.example
-```
+Compose đọc `.env` tại thư mục gốc. Backend chạy bằng Maven nhận biến môi trường của tiến trình chạy ứng dụng; khi thay đổi tài khoản hoặc database, cần đồng bộ thông tin kết nối của backend với MySQL.
 
 ---
 
@@ -394,19 +365,56 @@ Phân công chi tiết được quản lý trong file kế hoạch tiến độ 
 
 ---
 
-## 15. Trạng thái dự án
+## 15. Chạy và kiểm chứng Course độc lập
 
-> **Đang phát triển**
+Các bước dưới đây tiếp tục sau mục 8, giữ cấu hình cổng mặc định:
 
-Phiên bản hiện tại tập trung vào việc hoàn thiện nền tảng Spring Boot và các nội dung học tập theo yêu cầu môn học trước khi mở rộng nghiệp vụ.
+| Thành phần | Cách chạy | Địa chỉ hoặc cổng mặc định |
+|---|---|---|
+| Backend | Maven trên máy | `http://localhost:8080` |
+| MySQL | Docker, image `mysql:8.4` | `localhost:3306`, database `course_management` |
+| Redis | Docker, image `redis:7.4-alpine` | `localhost:6379` |
 
----
+Giữ cửa sổ backend hoạt động. Mở PowerShell thứ hai tại thư mục gốc repository để chạy các lệnh kiểm tra. Docker Desktop cần hoạt động khi dùng Compose hoặc Testcontainers.
 
-## Chạy nhánh `refactor/course-standalone`
+### 15.1. Kiểm tra API và image dịch vụ
 
-Course dùng REST Controller, Service, Spring Data JPA, Bean Validation và Global Exception Handler. Request/response của Course chỉ gồm `title`, `description`, `price`, `level`, `status` (response có thêm `id`). Backend chỉ còn module Course; các file Category, Student và Enrollment đã được gỡ khỏi mã nguồn.
+```powershell
+$base = 'http://localhost:8080'
 
-Chuẩn bị MySQL 8.4 và Redis bằng `docker compose up -d --wait`. Flyway quản lý schema và dữ liệu mẫu bằng ba migration:
+Invoke-RestMethod "$base/api/health" | ConvertTo-Json -Compress
+Invoke-RestMethod "$base/api/courses" | Format-Table id, title, price
+
+docker compose ps
+docker compose images
+```
+
+Health trả `UP`; hai container MySQL và Redis cần ở trạng thái `healthy`. Các image dịch vụ cần khớp khai báo `mysql:8.4` và `redis:7.4-alpine` trong cấu hình Compose. Backend được biên dịch và chạy từ mã nguồn bằng Maven; Compose cung cấp hai dịch vụ phụ thuộc.
+
+### 15.2. Kiểm tra cache
+
+Chỉ `GET /api/courses/{id}` dùng cache `standaloneCourseDetails`; TTL mặc định là 10 phút. Chọn ID đang tồn tại trong danh sách Course. Ví dụ dưới đây dùng ID `1`:
+
+```powershell
+Invoke-RestMethod "$base/api/courses/1"
+
+docker compose exec -T redis redis-cli GET 'standaloneCourseDetails::1'
+docker compose exec -T redis redis-cli TTL 'standaloneCourseDetails::1'
+```
+
+Sau lần đọc tạo cache, Redis lưu dữ liệu chi tiết và TTL bắt đầu gần `600` giây, sau đó giảm theo thời gian.
+
+Khi PUT hoặc DELETE thành công, ứng dụng xóa khóa cache tương ứng sau transaction commit. Sau khi thực hiện thao tác đó qua Swagger, kiểm tra đúng ID vừa sửa hoặc xóa:
+
+```powershell
+docker compose exec -T redis redis-cli EXISTS 'standaloneCourseDetails::1'
+```
+
+Kết quả `0` xác nhận khóa đã bị xóa. Nếu gọi GET chi tiết lại trước phép kiểm tra, ứng dụng có thể tạo lại khóa cache.
+
+### 15.3. Migration Flyway
+
+Flyway được bật mặc định và chạy migration trước khi JPA khởi tạo. Hibernate dùng `ddl-auto: validate` để kiểm tra cấu trúc; `spring.sql.init.mode: never` tắt việc chạy lại `data.sql` mỗi lần khởi động.
 
 | Migration | Nội dung |
 |---|---|
@@ -414,13 +422,31 @@ Chuẩn bị MySQL 8.4 và Redis bằng `docker compose up -d --wait`. Flyway qu
 | `V2__detach_legacy_course_relationships.sql` | Nếu còn schema tích hợp: bỏ khóa ngoại Category, cho phép `courses.category_id` nhận `NULL`, bỏ khóa ngoại `enrollments.course_id`. Giữ các bảng, cột, giá trị và dòng dữ liệu cũ. |
 | `V3__seed_standalone_courses.sql` | Nạp ba Course mẫu một lần; không ghi đè các ID đã tồn tại. |
 
-Database mới có bảng nghiệp vụ `courses` và `flyway_schema_history`. Các migration đã áp dụng không chạy lại khi restart, nên Course đã sửa hoặc xóa không bị dữ liệu mẫu khôi phục. File `data.sql` và script chuyển đổi thủ công `migration/course-standalone-mysql.sql` được giữ để đối chiếu lịch sử; quy trình khởi động mới dùng các migration Flyway ở trên.
+Database mới có bảng nghiệp vụ `courses` và bảng lịch sử `flyway_schema_history`. Các migration đã áp dụng giữ nguyên qua các lần khởi động. Quy trình khởi tạo dùng ba migration Flyway ở trên; `data.sql` và script chuyển đổi thủ công được giữ để đối chiếu lịch sử.
 
-### Database cũ chưa có `flyway_schema_history`
+Kiểm tra từ thư mục gốc repository với tài khoản và database mặc định:
 
-Cấu hình mặc định `baseline-on-migrate: false` yêu cầu người chạy xác nhận trước khi tiếp nhận database có sẵn. Sao lưu và kiểm tra đúng database Course độc lập trước bước này. Nếu database đã có lịch sử Flyway từ bản tích hợp, dùng database/schema riêng cho nhánh standalone vì hai nhánh có chuỗi migration khác nhau; không sửa hoặc xóa lịch sử cũ.
+```powershell
+docker compose exec -T mysql mysql -ucourse_user -pcourse_password -D course_management -e "SELECT installed_rank, version, description, type, script, success FROM flyway_schema_history ORDER BY installed_rank; SELECT id, title FROM courses ORDER BY id;"
+```
 
-Với database cũ **chưa có lịch sử Flyway**, chạy một lần từ thư mục `backend`:
+Database mới có ba migration SQL thành công, phiên bản hiện tại là `3`. Nếu đã cấu hình tài khoản hoặc tên database riêng trước đó, dùng thông tin tương ứng cho câu lệnh truy vấn.
+
+### 15.4. Dữ liệu sau khởi động lại
+
+Thực hiện trên database Course dùng cho demo:
+
+1. Qua Swagger, sửa một Course mẫu và xóa một Course mẫu khác; ghi lại ID và dữ liệu sau thao tác.
+2. Kiểm tra danh sách Course và lịch sử Flyway bằng các lệnh ở trên.
+3. Ở cửa sổ backend, nhấn `Ctrl+C`; nếu được hỏi kết thúc batch job, chọn `Y`.
+4. Từ thư mục `backend`, chạy lại `.\mvnw.cmd spring-boot:run` trong cùng cửa sổ để giữ cấu hình kết nối.
+5. Chạy lại API và truy vấn SQL. Course đã sửa phải giữ nội dung mới; Course đã xóa giữ trạng thái đã xóa. Flyway xác nhận schema đã cập nhật và giữ nguyên lịch sử migration.
+
+### 15.5. Database cũ chưa có lịch sử Flyway
+
+Cấu hình mặc định `baseline-on-migrate: false` yêu cầu người chạy xác nhận trước khi tiếp nhận database có sẵn. Sao lưu và xác nhận đúng database Course trước bước này. Database đã có lịch sử Flyway của bản tích hợp cần dùng database/schema riêng cho standalone, vì hai nhánh có chuỗi migration khác nhau; giữ nguyên lịch sử đã có.
+
+Đặt thông tin datasource tới đúng database Course cũ cần tiếp nhận. Với database **chưa có `flyway_schema_history`**, bật baseline một lần tại phiên bản `0`, từ thư mục `backend`:
 
 ```powershell
 $env:SPRING_FLYWAY_BASELINE_ON_MIGRATE = 'true'
@@ -433,35 +459,45 @@ try {
 }
 ```
 
-Sau khi ứng dụng khởi động thành công, dừng bằng `Ctrl+C`; các lần tiếp theo dùng lệnh chạy bình thường, không bật baseline. Phiên bản baseline phải là **0** để V1, V2 và V3 đều được thực hiện. Nếu schema cũ thiếu cột hoặc sai kiểu dữ liệu, Hibernate sẽ báo lỗi kiểm tra schema thay vì tự chỉnh cấu trúc.
+Sau khi khởi động thành công, dừng ứng dụng để khối `finally` dọn hai biến baseline. Các lần tiếp theo chạy bình thường. Baseline `0` cho phép V1, V2 và V3 đều được thực hiện; lịch sử có thêm dòng baseline `0`. Hibernate báo lỗi nếu cấu trúc còn sai kiểu dữ liệu hoặc thiếu cột.
 
-Các bảng Category, Student, Enrollment cũ vẫn được giữ, nhưng ứng dụng standalone không ánh xạ hoặc sử dụng chúng. Sau khi bỏ khóa ngoại, dòng Enrollment cũ có thể trỏ tới ID Course đã bị xóa.
+Các bảng Category, Student và Enrollment cũ vẫn được giữ, còn ứng dụng standalone chỉ sử dụng Course. Sau khi bỏ khóa ngoại, dòng Enrollment cũ có thể tham chiếu ID Course đã bị xóa.
 
-### Kiểm tra Flyway và restart
+### 15.6. Kiểm thử tự động và CI
 
-```sql
-SELECT installed_rank, version, description, type, script, success
-FROM flyway_schema_history ORDER BY installed_rank;
-```
-
-Database mới có ba migration SQL thành công, phiên bản hiện tại là `3`. Database cũ được tiếp nhận có thêm dòng baseline `0`. Khi restart, lịch sử migration và dữ liệu Course không đổi.
-
-`StandaloneFlywayIntegrationTests` dùng MySQL 8.4 riêng qua Testcontainers để kiểm tra database mới, restart, từ chối tự baseline và tiếp nhận schema cũ giữ dữ liệu. `CourseCacheIntegrationTests` tiếp tục dùng H2/Redis với Flyway tắt rõ trong lớp test; profile thí nghiệm datasource `m05` cũng tắt Flyway để giữ đúng phạm vi thí nghiệm cũ.
-
-Chạy build/test và ứng dụng từ thư mục `backend`:
+Khi Docker Desktop đang hoạt động, mở PowerShell tại thư mục `backend` để chạy:
 
 ```powershell
-.\mvnw.cmd clean verify
-.\mvnw.cmd spring-boot:run
+.\mvnw.cmd -version
+.\mvnw.cmd -B clean verify
 ```
 
-Ví dụ request tạo Course:
+Đọc tổng kết `Tests run` và trạng thái build ở cuối kết quả. Báo cáo kiểm thử được lưu trong `backend/target/surefire-reports/`, tính từ thư mục gốc repository. Nếu đang chạy backend, có thể dừng bằng `Ctrl+C` trước lệnh `clean verify`, rồi khởi động lại sau khi kiểm thử kết thúc.
 
-```http
-POST /api/courses
-Content-Type: application/json
+`StandaloneFlywayIntegrationTests` dùng MySQL riêng qua Testcontainers để kiểm tra database mới, restart, từ chối tự baseline và tiếp nhận schema cũ giữ dữ liệu. `CourseCacheIntegrationTests` dùng H2 với Flyway tắt trong lớp test và Redis riêng để kiểm tra cache. Bộ kiểm thử backend còn gồm các bài thực nghiệm vòng đời bean và lựa chọn dependency.
 
-{"title":"Spring Boot thực hành","description":"REST và JPA","price":499000,"level":"BEGINNER","status":"DRAFT"}
+Workflow [Standalone backend](.github/workflows/standalone-backend.yml) được cấu hình chạy khi push hoặc mở pull request vào `refactor/course-standalone`. Job dùng Java 21, chạy Maven `verify` và lưu báo cáo Surefire XML.
+
+### 15.7. Kết quả kiểm chứng đã ghi nhận
+
+Lượt kiểm chứng ngày 28/10/2026 dùng nguồn [092574a3](https://github.com/ngnhuan282/spring-boot-course-management/tree/092574a301415977c24e6081cc67242cd12f3d85), Java 21 và Maven 3.9.16, với database và cổng cấu hình riêng. Bảng này lưu kết quả của lượt đó; hướng dẫn chạy trong README dùng cổng mặc định.
+
+| Nội dung | Kết quả ghi nhận |
+|---|---|
+| Mã nguồn | Giữ nguyên `092574a3`, trạng thái làm việc sạch trước và sau lượt chạy. |
+| Image dịch vụ | `mysql:8.4`, `redis:7.4-alpine` khớp cấu hình tại cùng nguồn; hai container `healthy`. |
+| Build và kiểm thử | 12 ca đạt, 0 failure, 0 error, 0 skipped; `BUILD SUCCESS`, mã thoát 0. |
+| Khởi động lần đầu | Ba migration thành công, schema ở phiên bản 3; health trả `UP`, có ba Course mẫu. |
+| Cache | TTL 600 giây sau GET; phép kiểm tra tồn tại khóa trả 0 sau PUT. |
+| Xóa Course | HTTP 204. |
+| Sau restart | Ba migration được xác thực; dữ liệu đã sửa và trạng thái đã xóa được giữ nguyên. |
+
+### 15.8. Kết thúc phiên chạy
+
+Dừng backend bằng `Ctrl+C`. Từ thư mục gốc repository, dừng các dịch vụ:
+
+```powershell
+docker compose down
 ```
 
-API còn có `GET /api/courses`, `GET /api/courses/{id}`, `PUT /api/courses/{id}` (cùng JSON với POST), `DELETE /api/courses/{id}`. DELETE thành công trả `204`; ID không tồn tại trả `404` với code `COURSE_NOT_FOUND`. `title` rỗng hoặc `price` âm trả `400` với code `VALIDATION_FAILED`.
+Lệnh trên giữ volume MySQL để sử dụng lại dữ liệu.
