@@ -327,15 +327,6 @@ git commit -m "docs: configure Swagger OpenAPI"
 
 ## 11. Các mốc và phần đã triển khai
 
-### Tuần 1
-
-- [x] Khởi tạo Spring Boot project
-- [x] Thiết lập cấu trúc package cơ bản
-- [x] Tạo `/api/health`
-- [x] Cấu hình Swagger / OpenAPI
-- [x] Kiểm tra project chạy trên port `8080`
-- [ ] Hoàn thiện tài liệu và minh chứng Tuần 1
-
 ### Các phần đã triển khai
 
 - [x] Spring Data JPA và thiết kế Entity
